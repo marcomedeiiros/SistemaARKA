@@ -15,8 +15,8 @@ export interface User {
 
 export interface Customer {
   id?: number;
-  name: string; // Nome / Razão Social
-  document: string; // CPF / CNPJ
+  name: string;
+  document: string;
   phone: string;
   whatsapp: string;
   email: string;
@@ -33,8 +33,8 @@ export interface Customer {
 
 export interface Supplier {
   id?: number;
-  name: string; // Razão Social / Nome
-  document: string; // CNPJ / CPF
+  name: string;
+  document: string;
   phone: string;
   whatsapp: string;
   email: string;
@@ -57,7 +57,7 @@ export interface Product {
   categoryId: number;
   categoryName?: string;
   brand: string;
-  unit: string; // UN, KG, M, CX, PC, etc.
+  unit: string;
   costPrice: number;
   salePrice: number;
   currentStock: number;
@@ -77,7 +77,7 @@ export interface ServiceItemCatalog {
   description?: string;
   category: string;
   price: number;
-  estimatedDuration: string; // e.g. "1h", "30min", "2 dias"
+  estimatedDuration: string;
   active: boolean;
   createdAt: string;
 }
@@ -92,7 +92,7 @@ export interface StockMovement {
   quantity: number;
   previousStock: number;
   newStock: number;
-  reason: string; // e.g. "Venda #000001", "OS #000005", "Ajuste manual de inventário"
+  reason: string;
   referenceType?: 'sale' | 'os' | 'manual';
   referenceId?: number;
   userId?: number;
@@ -100,7 +100,7 @@ export interface StockMovement {
   createdAt: string;
 }
 
-export type PaymentMethod = 
+export type PaymentMethod =
   | 'dinheiro'
   | 'pix'
   | 'cartao_debito'
@@ -122,7 +122,7 @@ export interface SaleItem {
 
 export interface Sale {
   id?: number;
-  code: string; // e.g. "Venda #000001"
+  code: string;
   customerId: number;
   customerName: string;
   items: SaleItem[];
@@ -131,7 +131,7 @@ export interface Sale {
   surcharge: number;
   total: number;
   paymentMethod: PaymentMethod;
-  installments: number; // 1 for à vista, 2+ for parcelado
+  installments: number;
   status: 'concluida' | 'cancelada';
   sellerId?: number;
   sellerName?: string;
@@ -139,7 +139,7 @@ export interface Sale {
   createdAt: string;
 }
 
-export type OSStatus = 
+export type OSStatus =
   | 'aberta'
   | 'em_analise'
   | 'aguardando_aprovacao'
@@ -171,7 +171,7 @@ export interface OSService {
 
 export interface ServiceOrder {
   id?: number;
-  code: string; // e.g. "OS #000001"
+  code: string;
   customerId: number;
   customerName: string;
   customerPhone?: string;
@@ -194,8 +194,8 @@ export interface ServiceOrder {
   surcharge: number;
   total: number;
   notes?: string;
-  stockDeducted?: boolean; // whether stock was already deducted
-  receivableCreated?: boolean; // whether financial receivable was created
+  stockDeducted?: boolean;
+  receivableCreated?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -204,19 +204,19 @@ export type FinancialStatus = 'pendente' | 'pago' | 'vencido' | 'cancelado';
 
 export interface AccountReceivable {
   id?: number;
-  code: string; // e.g. "REC #000001"
+  code: string;
   customerId: number;
   customerName: string;
   description: string;
   amount: number;
-  paidAmount: number; // For partial payments support
+  paidAmount: number;
   dueDate: string;
   paymentDate?: string;
   paymentMethod?: PaymentMethod;
   status: FinancialStatus;
   originType: 'sale' | 'os' | 'manual';
   originId?: number;
-  originCode?: string; // e.g. "Venda #000001" or "OS #000003"
+  originCode?: string;
   category: string;
   notes?: string;
   createdAt: string;
@@ -224,11 +224,11 @@ export interface AccountReceivable {
 
 export interface AccountPayable {
   id?: number;
-  code: string; // e.g. "PAG #000001"
+  code: string;
   supplierId?: number;
   supplierName: string;
   description: string;
-  category: string; // e.g. "Fornecedor", "Aluguel", "Energia", "Salários"
+  category: string;
   amount: number;
   paidAmount: number;
   dueDate: string;
@@ -241,8 +241,8 @@ export interface AccountPayable {
 
 export interface CompanySettings {
   id?: number;
-  name: string; // Arka Soluções Empresariais
-  tradeName: string; // Sistemas Arka
+  name: string;
+  tradeName: string;
   cnpj: string;
   phone: string;
   whatsapp: string;
@@ -260,7 +260,12 @@ export interface CustomerHistory {
   customer: Customer;
   serviceOrders: ServiceOrder[];
   sales: Sale[];
-  purchasedProducts: { productName: string; quantity: number; totalSpent: number; lastPurchased: string }[];
+  purchasedProducts: {
+    productName: string;
+    quantity: number;
+    totalSpent: number;
+    lastPurchased: string;
+  }[];
   totalSpent: number;
   openReceivablesTotal: number;
   receivables: AccountReceivable[];

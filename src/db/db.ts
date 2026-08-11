@@ -1,18 +1,205 @@
-import Dexie, { Table } from 'dexie';
-import {
-  User,
-  Customer,
-  Supplier,
-  ProductCategory,
-  Product,
-  ServiceItemCatalog,
-  StockMovement,
-  Sale,
-  ServiceOrder,
-  AccountReceivable,
-  AccountPayable,
-  CompanySettings
-} from '../types';
+import Dexie, { type Table } from 'dexie';
+
+// Inline types to avoid module resolution issues
+interface User {
+  id?: number;
+  name: string;
+  email: string;
+  password?: string;
+  role: string;
+  active: boolean;
+  avatarUrl?: string;
+  createdAt: string;
+}
+
+interface Customer {
+  id?: number;
+  name: string;
+  document: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  zipCode: string;
+  address: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Supplier {
+  id?: number;
+  name: string;
+  document: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  address: string;
+  notes?: string;
+  createdAt: string;
+}
+
+interface ProductCategory {
+  id?: number;
+  name: string;
+  description?: string;
+}
+
+interface Product {
+  id?: number;
+  sku: string;
+  name: string;
+  description?: string;
+  categoryId: number;
+  categoryName?: string;
+  brand: string;
+  unit: string;
+  costPrice: number;
+  salePrice: number;
+  currentStock: number;
+  minStock: number;
+  supplierId?: number;
+  supplierName?: string;
+  barcode: string;
+  imageUrl?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ServiceItemCatalog {
+  id?: number;
+  name: string;
+  description?: string;
+  category: string;
+  price: number;
+  estimatedDuration: string;
+  active: boolean;
+  createdAt: string;
+}
+
+interface StockMovement {
+  id?: number;
+  productId: number;
+  productName: string;
+  type: string;
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  reason: string;
+  referenceType?: string;
+  referenceId?: number;
+  userId?: number;
+  userName?: string;
+  createdAt: string;
+}
+
+interface Sale {
+  id?: number;
+  code: string;
+  customerId: number;
+  customerName: string;
+  items: object[];
+  subtotal: number;
+  discount: number;
+  surcharge: number;
+  total: number;
+  paymentMethod: string;
+  installments: number;
+  status: string;
+  sellerId?: number;
+  sellerName?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+interface ServiceOrder {
+  id?: number;
+  code: string;
+  customerId: number;
+  customerName: string;
+  customerPhone?: string;
+  customerDocument?: string;
+  customerEmail?: string;
+  customerAddress?: string;
+  technicianId?: number;
+  technicianName: string;
+  openingDate: string;
+  completionDate?: string;
+  status: string;
+  problemDescription: string;
+  diagnosis?: string;
+  executedSolution?: string;
+  products: object[];
+  services: object[];
+  productsTotal: number;
+  servicesTotal: number;
+  discount: number;
+  surcharge: number;
+  total: number;
+  notes?: string;
+  stockDeducted?: boolean;
+  receivableCreated?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AccountReceivable {
+  id?: number;
+  code: string;
+  customerId: number;
+  customerName: string;
+  description: string;
+  amount: number;
+  paidAmount: number;
+  dueDate: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  status: string;
+  originType: string;
+  originId?: number;
+  originCode?: string;
+  category: string;
+  notes?: string;
+  createdAt: string;
+}
+
+interface AccountPayable {
+  id?: number;
+  code: string;
+  supplierId?: number;
+  supplierName: string;
+  description: string;
+  category: string;
+  amount: number;
+  paidAmount: number;
+  dueDate: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  status: string;
+  notes?: string;
+  createdAt: string;
+}
+
+interface CompanySettings {
+  id?: number;
+  name: string;
+  tradeName: string;
+  cnpj: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  allowNegativeStock: boolean;
+  logoUrl?: string;
+  termsAndConditions?: string;
+}
 
 export class ArkaDatabase extends Dexie {
   users!: Table<User>;

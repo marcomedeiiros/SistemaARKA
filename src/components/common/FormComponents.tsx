@@ -174,3 +174,6 @@ export const financialStatusLabel: Record<string, string> = {
   vencido: 'Vencido',
   cancelado: 'Cancelado'
 };
+
+// Re-export StatCard for convenience
+export { StatCard } from './StatCard';

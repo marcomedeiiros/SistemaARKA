@@ -1,13 +1,4 @@
 import { db } from './db';
-import {
-  User,
-  Customer,
-  Supplier,
-  ProductCategory,
-  Product,
-  ServiceItemCatalog,
-  CompanySettings
-} from '../types';
 
 export async function seedDatabase(force = false) {
   const usersCount = await db.users.count();
@@ -33,7 +24,7 @@ export async function seedDatabase(force = false) {
   }
 
   // 1. Seed Users
-  const users: User[] = [
+  const users = [
     {
       name: 'Carlos Oliveira (Admin)',
       email: 'admin@arka.com.br',
@@ -70,7 +61,7 @@ export async function seedDatabase(force = false) {
   await db.users.bulkAdd(users);
 
   // 2. Company Settings
-  const companySettings: CompanySettings = {
+  const companySettings = {
     name: 'Arka Soluções Empresariais LTDA',
     tradeName: 'Sistemas Arka',
     cnpj: '12.345.678/0001-90',
@@ -87,7 +78,7 @@ export async function seedDatabase(force = false) {
   await db.companySettings.add(companySettings);
 
   // 3. Suppliers
-  const suppliers: Supplier[] = [
+  const suppliers = [
     {
       name: 'TechComponentes Distribuidora S.A.',
       document: '45.890.123/0001-44',
@@ -112,7 +103,7 @@ export async function seedDatabase(force = false) {
   const supplierIds = await db.suppliers.bulkAdd(suppliers, { allKeys: true });
 
   // 4. Categories
-  const categories: ProductCategory[] = [
+  const categories = [
     { name: 'Hardware & Informática', description: 'Peças e periféricos para computadores e notebooks' },
     { name: 'Redes & Conectividade', description: 'Roteadores, switches e cabos de rede' },
     { name: 'Segurança Eletrônica', description: 'Câmeras, DVRs e sensores' },
@@ -121,7 +112,7 @@ export async function seedDatabase(force = false) {
   const categoryIds = await db.categories.bulkAdd(categories, { allKeys: true });
 
   // 5. Products
-  const products: Product[] = [
+  const products = [
     {
       sku: 'PRD-001',
       name: 'SSD NVMe M.2 1TB Kingston NV2',
@@ -246,7 +237,7 @@ export async function seedDatabase(force = false) {
   const productIds = await db.products.bulkAdd(products, { allKeys: true });
 
   // 6. Services Catalog
-  const services: ServiceItemCatalog[] = [
+  const services = [
     {
       name: 'Formatação e Instalação de Sistema Operacional',
       description: 'Formatação limpa, instalação do Windows/Linux, drivers e programas essenciais.',
@@ -287,7 +278,7 @@ export async function seedDatabase(force = false) {
   await db.services.bulkAdd(services);
 
   // 7. Customers
-  const customers: Customer[] = [
+  const customers = [
     {
       name: 'Grupo Comercial Alfa LTDA',
       document: '23.456.789/0001-12',
