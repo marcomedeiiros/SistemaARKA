@@ -1,4 +1,5 @@
 import { db } from './db';
+import { User } from '../types';
 
 export async function seedDatabase(force = false) {
   const usersCount = await db.users.count();
@@ -24,7 +25,7 @@ export async function seedDatabase(force = false) {
   }
 
   // 1. Seed Users
-  const users = [
+  const users: User[] = [
     {
       name: 'Carlos Oliveira (Admin)',
       email: 'admin@arka.com.br',

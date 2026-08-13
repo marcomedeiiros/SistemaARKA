@@ -118,7 +118,7 @@ export const Products: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="page-container animate-fade-in">
       <SectionTitle
         title="Produtos"
         subtitle={`${products.length} produto(s) no catálogo`}

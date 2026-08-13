@@ -87,7 +87,7 @@ export const Sales: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in space-y-5">
+    <div className="page-container animate-fade-in">
       <SectionTitle
         title="Vendas / PDV"
         subtitle={`${filteredSales.length} venda(s) no período selecionado`}

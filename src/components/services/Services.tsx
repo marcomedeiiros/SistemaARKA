@@ -68,7 +68,7 @@ export const Services: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="page-container animate-fade-in">
       <SectionTitle
         title="Catálogo de Serviços"
         subtitle={`${services.length} serviço(s) cadastrado(s)`}

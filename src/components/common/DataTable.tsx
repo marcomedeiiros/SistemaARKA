@@ -155,8 +155,8 @@ export function DataTable<T extends Record<string, any>>({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-[var(--text-muted)]">
-          <span>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs sm:text-sm text-[var(--text-muted)] pt-1">
+          <span className="text-center sm:text-left">
             Mostrando {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, sortedData.length)} de {sortedData.length} registros
           </span>
           <div className="flex gap-1">

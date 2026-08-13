@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import './styles/index.css';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
+import { ToastContainer } from './components/common/ToastContainer';
+import { CommandPalette } from './components/common/CommandPalette';
 import { Sidebar, ActiveModule } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './components/dashboard/Dashboard';
@@ -15,11 +18,14 @@ import { Financial } from './components/financial/Financial';
 import { Suppliers } from './components/suppliers/Suppliers';
 import { Reports } from './components/reports/Reports';
 import { Users } from './components/users/Users';
+import { Settings } from './components/settings/Settings';
 import { seedDatabase } from './db/seed';
 
 function AppContent() {
   const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -32,14 +38,18 @@ function AppContent() {
       }
     }
     init();
+
+    const handleCustomSearchOpen = () => setIsSearchOpen(true);
+    window.addEventListener('open-command-palette', handleCustomSearchOpen);
+    return () => window.removeEventListener('open-command-palette', handleCustomSearchOpen);
   }, []);
 
   if (!isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[var(--bg-main)]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[var(--text-main)] font-medium">Carregando Sistema Arka...</p>
+          <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--text-main)] font-semibold text-sm">Carregando Sistemas Arka ERP...</p>
         </div>
       </div>
     );
@@ -70,26 +80,43 @@ function AppContent() {
       case 'users':
         return <Users />;
       case 'settings':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-[var(--text-main)] mb-4">Configurações</h2>
-            <p className="text-[var(--text-muted)]">Módulo em desenvolvimento...</p>
-          </div>
-        );
+        return <Settings />;
       default:
         return <Dashboard />;
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg-main)]">
-      <Sidebar active={activeModule} onNavigate={setActiveModule} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header activeModule={activeModule} />
-        <main className="flex-1 overflow-auto">
-          {renderModule()}
+    <div className="app-root bg-[var(--bg-main)]">
+      <Sidebar
+        active={activeModule}
+        onNavigate={setActiveModule}
+        mobileOpen={isMobileMenuOpen}
+        onMobileClose={() => setIsMobileMenuOpen(false)}
+      />
+      <div className="app-shell">
+        <Header
+          activeModule={activeModule}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          onOpenSearch={() => setIsSearchOpen(true)}
+          onNavigate={setActiveModule}
+        />
+        <main className="app-main">
+          <div className="layout-inner">
+            {renderModule()}
+          </div>
         </main>
       </div>
+
+      {/* Global Toast Container */}
+      <ToastContainer />
+
+      {/* Quick Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onNavigate={setActiveModule}
+      />
     </div>
   );
 }
@@ -98,7 +125,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

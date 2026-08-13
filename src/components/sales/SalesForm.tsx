@@ -188,7 +188,7 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 h-full min-h-[600px]">
+    <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 h-full">
       {/* Left: Product Search */}
       <div className="flex-1 space-y-3">
         <h3 className="font-semibold text-[var(--text-main)]">Adicionar Produto</h3>
@@ -233,7 +233,7 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
       </div>
 
       {/* Right: Cart */}
-      <div className="lg:w-[380px] flex flex-col gap-4">
+      <div className="w-full lg:w-[380px] flex flex-col gap-4">
         {/* Customer */}
         <div>
           <label className="text-sm font-medium text-[var(--text-main)] mb-1.5 block">Cliente *</label>

@@ -55,7 +55,7 @@ export const Customers: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="page-container animate-fade-in">
       <SectionTitle
         title="Clientes"
         subtitle={`${customers.length} cliente(s) cadastrado(s)`}

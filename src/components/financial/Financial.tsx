@@ -150,11 +150,11 @@ export const Financial: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in space-y-5">
+    <div className="page-container animate-fade-in">
       <SectionTitle title="Financeiro" subtitle="Contas a receber, pagar e fluxo de caixa" />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="kpi-grid">
         <StatCard title="A Receber" value={formatCurrency(totalReceivable)} icon={<DollarSign size={20} />} color="green" />
         <StatCard title="A Pagar" value={formatCurrency(totalPayable)} icon={<ArrowDownCircle size={20} />} color="red" />
         <StatCard title="Saldo Previsto" value={formatCurrency(balance)} icon={<TrendingUp size={20} />} color={balance >= 0 ? 'blue' : 'red'} />

@@ -115,9 +115,9 @@ export const Dashboard: React.FC = () => {
   const recentOS = [...serviceOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
+    <div className="page-container animate-fade-in">
       {/* KPI Cards Row 1 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="kpi-grid">
         <StatCard
           title="Faturamento do Dia"
           value={formatCurrency(revenueToday)}
@@ -147,7 +147,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* KPI Cards Row 2 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="kpi-grid">
         <StatCard
           title="Total de Vendas"
           value={sales.length}
@@ -175,12 +175,12 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="two-col-grid">
         {/* Sales last 7 days */}
-        <div className="arka-card p-5">
+        <div className="arka-card p-5 chart-card">
           <h3 className="font-semibold text-[var(--text-main)] mb-1">Vendas - Últimos 7 Dias</h3>
           <p className="text-xs text-[var(--text-muted)] mb-4">Faturamento diário acumulado</p>
-          <div style={{ height: 220 }}>
+          <div className="chart-card-body">
             <Bar
               data={{
                 labels: dayLabels,
@@ -197,10 +197,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Revenue vs Expenses */}
-        <div className="arka-card p-5">
+        <div className="arka-card p-5 chart-card">
           <h3 className="font-semibold text-[var(--text-main)] mb-1">Receitas × Despesas (6 meses)</h3>
           <p className="text-xs text-[var(--text-muted)] mb-4">Entradas e saídas financeiras</p>
-          <div style={{ height: 220 }}>
+          <div className="chart-card-body">
             <Line
               data={{
                 labels: monthLabels,
@@ -240,7 +240,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Recent Activity Row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="two-col-grid">
         {/* Recent Sales */}
         <div className="arka-card p-5">
           <h3 className="font-semibold text-[var(--text-main)] mb-4">Vendas Recentes</h3>
@@ -295,7 +295,7 @@ export const Dashboard: React.FC = () => {
             <AlertTriangle size={18} className="text-amber-400" />
             <h3 className="font-semibold text-[var(--text-main)]">Alerta: Produtos com Estoque Baixo</h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="three-col-grid">
             {lowStockProducts.map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-2 p-3 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)' }}>
                 <div className="min-w-0">

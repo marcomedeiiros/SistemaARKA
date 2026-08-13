@@ -98,11 +98,11 @@ export const StockMovements: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in space-y-5">
+    <div className="page-container animate-fade-in">
       <SectionTitle title="Controle de Estoque" subtitle="Movimentações e alertas de estoque" />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="kpi-grid">
         <StatCard title="Produtos Ativos" value={totalProducts} icon={<Layers size={20} />} color="blue" />
         <StatCard title="Estoque Crítico" value={`${lowStock.length} produto(s)`} icon={<AlertTriangle size={20} />} color={lowStock.length > 0 ? 'red' : 'green'} />
         <StatCard title="Movimentações" value={movements.length} icon={<TrendingDown size={20} />} color="purple" />
@@ -116,7 +116,7 @@ export const StockMovements: React.FC = () => {
             <AlertTriangle size={16} className="text-amber-400" />
             <h3 className="font-semibold text-[var(--text-main)]">Produtos com Estoque Abaixo do Mínimo</h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="three-col-grid">
             {lowStock.map((p) => (
               <div key={p.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
                 <div>

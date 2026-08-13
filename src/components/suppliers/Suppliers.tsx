@@ -61,7 +61,7 @@ export const Suppliers: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="page-container animate-fade-in">
       <SectionTitle
         title="Fornecedores"
         subtitle={`${suppliers.length} fornecedor(es) cadastrado(s)`}

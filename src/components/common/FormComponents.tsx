@@ -26,8 +26,16 @@ interface FormRowProps {
 }
 
 export const FormRow: React.FC<FormRowProps> = ({ children, cols = 2 }) => {
-  const gridClass = cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : cols === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-4';
-  return <div className={`grid ${gridClass} gap-4`}>{children}</div>;
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
+      gap: '1rem'
+    }}
+    className="form-row"
+    data-cols={cols}
+    >{children}</div>
+  );
 };
 
 interface SectionTitleProps {
@@ -37,12 +45,12 @@ interface SectionTitleProps {
 }
 
 export const SectionTitle: React.FC<SectionTitleProps> = ({ title, subtitle, action }) => (
-  <div className="flex items-center justify-between mb-4">
+  <div className="section-title-row">
     <div>
-      <h2 className="text-xl font-bold text-[var(--text-main)]">{title}</h2>
+      <h2 className="text-xl font-bold text-[var(--text-main)] leading-tight">{title}</h2>
       {subtitle && <p className="text-sm text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
     </div>
-    {action && <div>{action}</div>}
+    {action && <div className="flex-shrink-0">{action}</div>}
   </div>
 );
 

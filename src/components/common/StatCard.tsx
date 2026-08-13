@@ -61,24 +61,24 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className="arka-card p-5 animate-fade-in"
+      className="arka-card p-4 sm:p-5 animate-fade-in"
       style={{
         cursor: onClick ? 'pointer' : 'default',
         borderColor: c.border
       }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-sm font-medium text-[var(--text-muted)] leading-tight">{title}</p>
+      <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
+        <p className="text-xs sm:text-sm font-medium text-[var(--text-muted)] leading-tight flex-1 min-w-0">{title}</p>
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: c.bg, color: c.icon }}
         >
           {icon}
         </div>
       </div>
-      <p className="text-2xl font-bold text-[var(--text-main)]">{value}</p>
+      <p className="text-lg sm:text-2xl font-extrabold text-[var(--text-main)] truncate">{value}</p>
       {trend && (
-        <p className={`text-xs mt-1 font-medium ${trend.positive !== false ? 'text-emerald-500' : 'text-red-400'}`}>
+        <p className={`text-[11px] sm:text-xs mt-1 font-medium ${trend.positive !== false ? 'text-emerald-500' : 'text-red-400'}`}>
           {trend.positive !== false ? '↑' : '↓'} {trend.value}
         </p>
       )}

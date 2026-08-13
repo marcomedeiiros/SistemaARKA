@@ -353,7 +353,7 @@ export const Reports: React.FC = () => {
   };
 
   return (
-    <div className="p-6 animate-fade-in space-y-5">
+    <div className="page-container animate-fade-in">
       <SectionTitle title="Relatórios" subtitle="Exporte e analise dados do sistema" />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
