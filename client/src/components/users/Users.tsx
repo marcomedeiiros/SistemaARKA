@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { User, UserRole } from '../../types';
 import { DataTable } from '../common/DataTable';
@@ -134,10 +134,10 @@ export const Users: React.FC = () => {
           searchFields={['name', 'email']}
           actions={(u: User) => (
             <>
-              <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 transition">
+              <button onClick={() => openEdit(u)} className="icon-btn icon-btn-amber" title="Editar" aria-label={`Editar ${u.name}`}>
                 <Pencil size={15} />
               </button>
-              <button onClick={() => handleDelete(u)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition">
+              <button onClick={() => handleDelete(u)} className="icon-btn icon-btn-red" title="Excluir" aria-label={`Excluir ${u.name}`}>
                 <Trash2 size={15} />
               </button>
             </>
@@ -145,7 +145,20 @@ export const Users: React.FC = () => {
         />
       </div>
 
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editUser ? 'Editar Usuário' : 'Novo Usuário'}>
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title={editUser ? 'Editar Usuário' : 'Novo Usuário'}
+        maxWidth="xl"
+        footer={
+          <>
+            <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancelar</button>
+            <button onClick={handleSave} disabled={loading} className="btn btn-primary">
+              {loading ? 'Salvando...' : 'Salvar Usuário'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           {formBanner && <Alert type={formBanner.type} message={formBanner.message} />}
 
@@ -186,12 +199,6 @@ export const Users: React.FC = () => {
             </FormGroup>
           </FormRow>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border-color)]">
-            <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancelar</button>
-            <button onClick={handleSave} disabled={loading} className="btn btn-primary">
-              {loading ? 'Salvando...' : 'Salvar Usuário'}
-            </button>
-          </div>
         </div>
       </Modal>
     </div>

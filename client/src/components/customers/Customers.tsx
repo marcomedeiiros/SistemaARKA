@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { Customer } from '../../types';
 import { DataTable } from '../common/DataTable';
@@ -7,17 +7,24 @@ import { Modal } from '../common/Modal';
 import { SectionTitle } from '../common/FormComponents';
 import { CustomerForm } from './CustomerForm';
 import { CustomerProfile } from './CustomerProfile';
-import { Plus, Eye, Pencil, Trash2, Users } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+import { Plus, Eye, Pencil, Trash2 } from 'lucide-react';
 
 export const Customers: React.FC = () => {
   const customers = useLiveQuery(() => db.customers.orderBy('name').toArray(), []) || [];
+  const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | undefined>();
   const [viewCustomer, setViewCustomer] = useState<Customer | null>(null);
 
   const handleDelete = async (c: Customer) => {
-    if (window.confirm(`Excluir o cliente "${c.name}"? Esta ação não pode ser desfeita.`)) {
+    if (!window.confirm(`Excluir o cliente "${c.name}"? Esta ação não pode ser desfeita.`)) return;
+
+    try {
       await db.customers.delete(c.id!);
+      showToast(`Cliente "${c.name}" excluído.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao excluir o cliente.', 'error');
     }
   };
 
@@ -80,22 +87,25 @@ export const Customers: React.FC = () => {
             <>
               <button
                 onClick={() => setViewCustomer(c)}
-                className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 transition"
-                title="Ver Perfil"
+                className="icon-btn icon-btn-blue"
+                title="Ver perfil"
+                aria-label={`Ver perfil de ${c.name}`}
               >
                 <Eye size={15} />
               </button>
               <button
                 onClick={() => { setEditCustomer(c); setShowForm(true); }}
-                className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition"
+                className="icon-btn icon-btn-amber"
                 title="Editar"
+                aria-label={`Editar ${c.name}`}
               >
                 <Pencil size={15} />
               </button>
               <button
                 onClick={() => handleDelete(c)}
-                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition"
+                className="icon-btn icon-btn-red"
                 title="Excluir"
+                aria-label={`Excluir ${c.name}`}
               >
                 <Trash2 size={15} />
               </button>
@@ -121,12 +131,13 @@ export const Customers: React.FC = () => {
       {/* Profile Modal */}
       {viewCustomer && (
         <Modal
-          isOpen={!!viewCustomer}
+          isOpen
           onClose={() => setViewCustomer(null)}
           title="Perfil do Cliente"
+          description="Histórico de ordens de serviço, vendas e financeiro."
           maxWidth="4xl"
         >
-          <CustomerProfile customer={viewCustomer} onClose={() => setViewCustomer(null)} />
+          <CustomerProfile customer={viewCustomer} />
         </Modal>
       )}
     </div>

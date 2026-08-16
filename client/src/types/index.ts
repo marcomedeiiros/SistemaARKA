@@ -183,7 +183,10 @@ export interface ServiceOrder {
   openingDate: string;
   completionDate?: string;
   status: OSStatus;
+  /** Problema relatado pelo cliente, nas palavras dele. */
   problemDescription: string;
+  /** O que o técnico precisa executar: escopo do serviço e orientações. */
+  requestedService?: string;
   diagnosis?: string;
   executedSolution?: string;
   products: OSProduct[];

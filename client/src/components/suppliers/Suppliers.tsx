@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { Supplier } from '../../types';
 import { DataTable } from '../common/DataTable';
@@ -81,14 +81,31 @@ export const Suppliers: React.FC = () => {
           emptyMessage="Nenhum fornecedor cadastrado."
           actions={(s: Supplier) => (
             <>
-              <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition" title="Editar"><Pencil size={15} /></button>
-              <button onClick={() => handleDelete(s)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition" title="Excluir"><Trash2 size={15} /></button>
+              <button onClick={() => openEdit(s)} className="icon-btn icon-btn-amber" title="Editar" aria-label={`Editar ${s.name}`}>
+                <Pencil size={15} />
+              </button>
+              <button onClick={() => handleDelete(s)} className="icon-btn icon-btn-red" title="Excluir" aria-label={`Excluir ${s.name}`}>
+                <Trash2 size={15} />
+              </button>
             </>
           )}
         />
       </div>
 
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editSupplier?.id ? 'Editar Fornecedor' : 'Novo Fornecedor'} maxWidth="xl">
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title={editSupplier?.id ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+        maxWidth="xl"
+        footer={
+          <>
+            <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancelar</button>
+            <button onClick={handleSave} disabled={loading} className="btn btn-primary">
+              {loading ? 'Salvando...' : 'Salvar'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
           <FormRow>
@@ -116,10 +133,6 @@ export const Suppliers: React.FC = () => {
           <FormGroup label="Observações">
             <textarea className="arka-input" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </FormGroup>
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancelar</button>
-            <button onClick={handleSave} disabled={loading} className="btn btn-primary">{loading ? 'Salvando...' : 'Salvar'}</button>
-          </div>
         </div>
       </Modal>
     </div>

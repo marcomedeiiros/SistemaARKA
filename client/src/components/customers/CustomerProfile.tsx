@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { Customer } from '../../types';
 import { formatCurrency, formatDate, osStatusLabel, osStatusColor, financialStatusColor, financialStatusLabel } from '../common/FormComponents';
-import { X, User, ClipboardList, ShoppingCart, DollarSign, Phone, Mail, MapPin, FileText } from 'lucide-react';
+import { ClipboardList, ShoppingCart, DollarSign, Phone, Mail, MapPin, FileText } from 'lucide-react';
 
 interface CustomerProfileProps {
   customer: Customer;
-  onClose: () => void;
 }
 
 type Tab = 'os' | 'sales' | 'financial';
 
-export const CustomerProfile: React.FC<CustomerProfileProps> = ({ customer, onClose }) => {
+export const CustomerProfile: React.FC<CustomerProfileProps> = ({ customer }) => {
   const [activeTab, setActiveTab] = useState<Tab>('os');
 
   const serviceOrders = useLiveQuery(
@@ -45,20 +44,16 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({ customer, onCl
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Customer Info */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-            {customer.name[0]}
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-[var(--text-main)]">{customer.name}</h2>
-            <p className="text-sm text-[var(--text-muted)]">{customer.document}</p>
-          </div>
+      {/* Identificação. O botão de fechar fica no cabeçalho do Modal antes
+          havia um segundo X aqui, duplicando a ação. */}
+      <div className="flex items-center gap-4 min-w-0">
+        <div className="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-arka-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+          {customer.name[0]}
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-color)] text-[var(--text-muted)]">
-          <X size={20} />
-        </button>
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-[var(--text-main)] truncate">{customer.name}</h2>
+          <p className="text-sm text-[var(--text-muted)]">{customer.document || 'Sem documento cadastrado'}</p>
+        </div>
       </div>
 
       {/* Contact Info Grid */}
@@ -106,21 +101,18 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({ customer, onCl
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--border-color)]">
+      <div className="tab-bar" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.key}
+            role="tab"
+            aria-selected={activeTab === t.key}
             onClick={() => setActiveTab(t.key)}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2"
-            style={{
-              borderColor: activeTab === t.key ? 'var(--accent-primary)' : 'transparent',
-              color: activeTab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)'
-            }}
+            className="tab-item"
           >
-            {t.icon} {t.label}
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold" style={{ background: 'rgba(148,163,184,0.15)' }}>
-              {t.count}
-            </span>
+            {t.icon}
+            <span className="hidden sm:inline">{t.label}</span>
+            <span className="badge badge-slate">{t.count}</span>
           </button>
         ))}
       </div>

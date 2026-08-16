@@ -1,24 +1,31 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { Product } from '../../types';
 import { DataTable } from '../common/DataTable';
 import { Modal } from '../common/Modal';
-import { SectionTitle, FormGroup, FormRow, Alert, formatCurrency } from '../common/FormComponents';
+import { SectionTitle, FormGroup, Alert, formatCurrency } from '../common/FormComponents';
 import { ProductForm } from './ProductForm';
 import { inventoryService } from '../../services/inventoryService';
+import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { Plus, Pencil, Trash2, Layers, AlertTriangle, Image } from 'lucide-react';
 
 export const Products: React.FC = () => {
   const products = useLiveQuery(() => db.products.toArray(), []) || [];
+  const { showToast } = useToast();
+  const { currentUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | undefined>();
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [stockType, setStockType] = useState<'entrada' | 'saida' | 'ajuste'>('entrada');
   const [stockQty, setStockQty] = useState(1);
   const [stockReason, setStockReason] = useState('');
+  const [stockSaving, setStockSaving] = useState(false);
   const [stockAlert, setStockAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'low'>('all');
+
+  const lowStockCount = products.filter((p) => p.active && p.currentStock <= p.minStock).length;
 
   const filteredProducts = products.filter((p) => {
     if (filterStatus === 'active') return p.active;
@@ -28,33 +35,68 @@ export const Products: React.FC = () => {
   });
 
   const handleDelete = async (p: Product) => {
-    if (window.confirm(`Excluir o produto "${p.name}"?`)) {
+    if (!window.confirm(`Excluir o produto "${p.name}"?`)) return;
+
+    try {
       await db.products.delete(p.id!);
+      showToast(`Produto "${p.name}" excluído.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao excluir o produto.', 'error');
     }
   };
 
+  /** Abre o modal de estoque já limpo, para não herdar valores da última abertura. */
+  const openStockModal = (product: Product) => {
+    setStockProduct(product);
+    setStockType('entrada');
+    setStockQty(1);
+    setStockReason('');
+    setStockAlert(null);
+  };
+
+  /** Fecha o modal de estoque descartando qualquer rascunho. */
+  const closeStockModal = () => {
+    setStockProduct(null);
+    setStockType('entrada');
+    setStockQty(1);
+    setStockReason('');
+    setStockAlert(null);
+    setStockSaving(false);
+  };
+
   const handleStockSave = async () => {
-    if (!stockProduct || stockQty <= 0 || !stockReason.trim()) {
-      setStockAlert({ type: 'error', message: 'Preencha a quantidade e o motivo.' });
+    if (!stockProduct) return;
+
+    if (stockType !== 'ajuste' && stockQty <= 0) {
+      setStockAlert({ type: 'error', message: 'Informe uma quantidade maior que zero.' });
       return;
     }
+    if (stockQty < 0) {
+      setStockAlert({ type: 'error', message: 'A quantidade não pode ser negativa.' });
+      return;
+    }
+    if (!stockReason.trim()) {
+      setStockAlert({ type: 'error', message: 'Informe o motivo da movimentação.' });
+      return;
+    }
+
+    setStockSaving(true);
     try {
       await inventoryService.updateStock(
         stockProduct.id!,
         stockType,
         stockQty,
-        stockReason,
-        'manual'
+        stockReason.trim(),
+        currentUser?.name
       );
-      setStockAlert({ type: 'success', message: 'Movimentação registrada com sucesso!' });
-      setTimeout(() => {
-        setStockProduct(null);
-        setStockAlert(null);
-        setStockQty(1);
-        setStockReason('');
-      }, 1000);
-    } catch (err: any) {
-      setStockAlert({ type: 'error', message: err.message });
+      showToast(`Estoque de "${stockProduct.name}" atualizado.`, 'success');
+      closeStockModal();
+    } catch (err) {
+      setStockAlert({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao registrar a movimentação.'
+      });
+      setStockSaving(false);
     }
   };
 
@@ -129,23 +171,19 @@ export const Products: React.FC = () => {
         }
       />
 
-      {/* Filter Tabs */}
-      <div className="flex gap-1 mb-4 p-1 rounded-xl w-fit" style={{ background: 'var(--border-color)' }}>
-        {[
+      {/* Filtros */}
+      <div className="segmented">
+        {([
           { key: 'all', label: 'Todos' },
           { key: 'active', label: 'Ativos' },
           { key: 'inactive', label: 'Inativos' },
-          { key: 'low', label: '⚠ Estoque Baixo' }
-        ].map((f) => (
+          { key: 'low', label: `Estoque baixo (${lowStockCount})` }
+        ] as const).map((f) => (
           <button
             key={f.key}
-            onClick={() => setFilterStatus(f.key as any)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-            style={{
-              background: filterStatus === f.key ? 'var(--bg-card)' : 'transparent',
-              color: filterStatus === f.key ? 'var(--text-main)' : 'var(--text-muted)',
-              boxShadow: filterStatus === f.key ? '0 1px 4px rgba(0,0,0,0.15)' : 'none'
-            }}
+            onClick={() => setFilterStatus(f.key)}
+            aria-pressed={filterStatus === f.key}
+            className="segmented-item"
           >
             {f.label}
           </button>
@@ -162,23 +200,26 @@ export const Products: React.FC = () => {
           actions={(p: Product) => (
             <>
               <button
-                onClick={() => { setStockProduct(p); setStockAlert(null); }}
-                className="p-1.5 rounded-lg text-purple-400 hover:bg-purple-500/10 transition"
-                title="Movimentar Estoque"
+                onClick={() => openStockModal(p)}
+                className="icon-btn icon-btn-purple"
+                title="Movimentar estoque"
+                aria-label={`Movimentar estoque de ${p.name}`}
               >
                 <Layers size={15} />
               </button>
               <button
                 onClick={() => { setEditProduct(p); setShowForm(true); }}
-                className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition"
+                className="icon-btn icon-btn-amber"
                 title="Editar"
+                aria-label={`Editar ${p.name}`}
               >
                 <Pencil size={15} />
               </button>
               <button
                 onClick={() => handleDelete(p)}
-                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition"
+                className="icon-btn icon-btn-red"
                 title="Excluir"
+                aria-label={`Excluir ${p.name}`}
               >
                 <Trash2 size={15} />
               </button>
@@ -194,7 +235,7 @@ export const Products: React.FC = () => {
 
       {/* Stock Movement Modal */}
       {stockProduct && (
-        <Modal isOpen={!!stockProduct} onClose={() => { setStockProduct(null); setStockAlert(null); }} title={`Movimentação de Estoque - ${stockProduct.name}`} maxWidth="md">
+        <Modal isOpen onClose={closeStockModal} title={`Movimentação de Estoque - ${stockProduct.name}`} maxWidth="md">
           <div className="space-y-4">
             {stockAlert && <Alert type={stockAlert.type} message={stockAlert.message} onClose={() => setStockAlert(null)} />}
 
@@ -242,9 +283,18 @@ export const Products: React.FC = () => {
               />
             </FormGroup>
 
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setStockProduct(null)} className="btn btn-secondary">Cancelar</button>
-              <button type="button" onClick={handleStockSave} className="btn btn-primary">Registrar Movimentação</button>
+            <div className="modal-actions">
+              <button type="button" onClick={closeStockModal} className="btn btn-secondary">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleStockSave}
+                disabled={stockSaving}
+                className="btn btn-primary"
+              >
+                {stockSaving ? 'Registrando...' : 'Registrar Movimentação'}
+              </button>
             </div>
           </div>
         </Modal>

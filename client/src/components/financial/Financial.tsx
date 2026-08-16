@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { AccountReceivable, AccountPayable, PaymentMethod } from '../../types';
 import { DataTable } from '../common/DataTable';
 import { Modal } from '../common/Modal';
 import { SectionTitle, StatCard, FormGroup, FormRow, Alert, formatCurrency, formatDate, financialStatusColor, financialStatusLabel, paymentMethodLabel } from '../common/FormComponents';
 import { financialService } from '../../services/financialService';
-import { DollarSign, ArrowDownCircle, TrendingUp, AlertTriangle, Plus, CheckCircle, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+import { DollarSign, ArrowDownCircle, TrendingUp, AlertTriangle, Plus, CheckCircle } from 'lucide-react';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend
 } from 'chart.js';
@@ -19,23 +20,46 @@ type FinancialTab = 'receivable' | 'payable' | 'cashflow';
 const PAYMENT_METHODS: PaymentMethod[] = ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'boleto', 'transferencia', 'fiado'];
 const PAYABLE_CATEGORIES = ['Fornecedor / Estoque', 'Aluguel', 'Energia / Utilidades', 'Salários', 'Impostos', 'Serviços Terceiros', 'Outros'];
 
+const emptyPayable = {
+  supplierName: '',
+  description: '',
+  category: PAYABLE_CATEGORIES[0],
+  amount: 0,
+  dueDate: ''
+};
+
+const emptyReceivable = {
+  customerId: 0,
+  customerName: '',
+  description: '',
+  category: 'Avulso',
+  amount: 0,
+  dueDate: ''
+};
+
 export const Financial: React.FC = () => {
   const [activeTab, setActiveTab] = useState<FinancialTab>('receivable');
   const receivables = useLiveQuery(() => db.accountsReceivable.orderBy('dueDate').toArray(), []) || [];
   const payables = useLiveQuery(() => db.accountsPayable.orderBy('dueDate').toArray(), []) || [];
+  const customers = useLiveQuery(() => db.customers.orderBy('name').toArray(), []) || [];
+  const { showToast } = useToast();
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<{ type: 'receivable' | 'payable'; item: AccountReceivable | AccountPayable } | null>(null);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentAlert, setPaymentAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [paymentSaving, setPaymentSaving] = useState(false);
 
   const [showPayableForm, setShowPayableForm] = useState(false);
-  const [payableForm, setPayableForm] = useState({
-    supplierName: '', description: '', category: PAYABLE_CATEGORIES[0], amount: 0, dueDate: ''
-  });
+  const [payableForm, setPayableForm] = useState({ ...emptyPayable });
   const [payableAlert, setPayableAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [payableSaving, setPayableSaving] = useState(false);
+
+  const [showReceivableForm, setShowReceivableForm] = useState(false);
+  const [receivableForm, setReceivableForm] = useState({ ...emptyReceivable });
+  const [receivableAlert, setReceivableAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [receivableSaving, setReceivableSaving] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -55,52 +79,117 @@ export const Financial: React.FC = () => {
   const overdueRec = processedReceivables.filter((r) => r.status === 'vencido').reduce((s, r) => s + r.amount - (r.paidAmount || 0), 0);
   const balance = totalReceivable - totalPayable;
 
-  const openPayment = (type: 'receivable' | 'payable', item: any) => {
-    const remaining = item.amount - (item.paidAmount || 0);
+  const openPayment = (type: 'receivable' | 'payable', item: AccountReceivable | AccountPayable) => {
     setPaymentTarget({ type, item });
-    setPaymentAmount(remaining);
+    setPaymentAmount(item.amount - (item.paidAmount || 0));
+    setPaymentMethod('pix');
+    setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentAlert(null);
-    setShowPaymentModal(true);
+    setPaymentSaving(false);
+  };
+
+  /** Fecha o modal de baixa limpando o alvo, que antes ficava pendurado no estado. */
+  const closePayment = () => {
+    setPaymentTarget(null);
+    setPaymentAmount(0);
+    setPaymentAlert(null);
+    setPaymentSaving(false);
   };
 
   const handlePayment = async () => {
-    if (!paymentTarget || paymentAmount <= 0) return;
+    if (!paymentTarget) return;
+
+    const outstanding = paymentTarget.item.amount - (paymentTarget.item.paidAmount || 0);
+
+    // Antes esta validação era um `return` silencioso: o botão não fazia nada.
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      setPaymentAlert({ type: 'error', message: 'Informe um valor maior que zero.' });
+      return;
+    }
+    if (paymentAmount > outstanding + 0.005) {
+      setPaymentAlert({
+        type: 'error',
+        message: `O valor excede o saldo em aberto de ${formatCurrency(outstanding)}.`
+      });
+      return;
+    }
+
+    setPaymentSaving(true);
     try {
       if (paymentTarget.type === 'receivable') {
         await financialService.receivePayment(paymentTarget.item.id!, paymentAmount, paymentMethod, paymentDate);
+        showToast(`Recebimento de ${formatCurrency(paymentAmount)} registrado.`, 'success');
       } else {
         await financialService.payAccount(paymentTarget.item.id!, paymentAmount, paymentMethod, paymentDate);
+        showToast(`Pagamento de ${formatCurrency(paymentAmount)} registrado.`, 'success');
       }
-      setPaymentAlert({ type: 'success', message: 'Pagamento registrado com sucesso!' });
-      setTimeout(() => { setShowPaymentModal(false); setPaymentAlert(null); }, 800);
-    } catch (err: any) {
-      setPaymentAlert({ type: 'error', message: err.message });
+      closePayment();
+    } catch (err) {
+      setPaymentAlert({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao registrar a baixa.'
+      });
+      setPaymentSaving(false);
     }
   };
 
+  const closePayableForm = () => {
+    setShowPayableForm(false);
+    setPayableForm({ ...emptyPayable });
+    setPayableAlert(null);
+    setPayableSaving(false);
+  };
+
   const handleAddPayable = async () => {
-    if (!payableForm.supplierName || !payableForm.description || !payableForm.amount || !payableForm.dueDate) {
-      setPayableAlert({ type: 'error', message: 'Preencha todos os campos obrigatórios.' });
-      return;
-    }
+    setPayableSaving(true);
     try {
-      const code = await financialService.generatePayableCode();
-      await db.accountsPayable.add({
-        code,
+      // O servidor gera o código e valida os campos em uma única transação.
+      await financialService.createPayable({
         supplierName: payableForm.supplierName,
         description: payableForm.description,
         category: payableForm.category,
         amount: Number(payableForm.amount),
-        paidAmount: 0,
-        dueDate: payableForm.dueDate,
-        status: 'pendente',
-        createdAt: new Date().toISOString()
+        dueDate: payableForm.dueDate
       });
-      setPayableAlert({ type: 'success', message: 'Conta a pagar registrada!' });
-      setPayableForm({ supplierName: '', description: '', category: PAYABLE_CATEGORIES[0], amount: 0, dueDate: '' });
-      setTimeout(() => { setShowPayableForm(false); setPayableAlert(null); }, 800);
-    } catch (err: any) {
-      setPayableAlert({ type: 'error', message: err.message });
+      showToast('Conta a pagar registrada.', 'success');
+      closePayableForm();
+    } catch (err) {
+      setPayableAlert({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao registrar a conta.'
+      });
+      setPayableSaving(false);
+    }
+  };
+
+  const closeReceivableForm = () => {
+    setShowReceivableForm(false);
+    setReceivableForm({ ...emptyReceivable });
+    setReceivableAlert(null);
+    setReceivableSaving(false);
+  };
+
+  const handleAddReceivable = async () => {
+    setReceivableSaving(true);
+    try {
+      const customer = customers.find((c) => c.id === Number(receivableForm.customerId));
+
+      await financialService.createReceivable({
+        customerId: customer?.id,
+        customerName: customer?.name || receivableForm.customerName,
+        description: receivableForm.description,
+        category: receivableForm.category,
+        amount: Number(receivableForm.amount),
+        dueDate: receivableForm.dueDate
+      });
+      showToast('Conta a receber registrada.', 'success');
+      closeReceivableForm();
+    } catch (err) {
+      setReceivableAlert({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao registrar a conta.'
+      });
+      setReceivableSaving(false);
     }
   };
 
@@ -162,16 +251,14 @@ export const Financial: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--border-color)]">
+      <div className="tab-bar" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.key}
+            role="tab"
+            aria-selected={activeTab === t.key}
             onClick={() => setActiveTab(t.key)}
-            className="px-5 py-2.5 text-sm font-medium border-b-2 transition-all"
-            style={{
-              borderColor: activeTab === t.key ? 'var(--accent-primary)' : 'transparent',
-              color: activeTab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)'
-            }}
+            className="tab-item"
           >
             {t.label}
           </button>
@@ -180,17 +267,23 @@ export const Financial: React.FC = () => {
 
       {/* Receivables Tab */}
       {activeTab === 'receivable' && (
-        <div className="arka-card p-5">
+        <div className="arka-card p-4 sm:p-5">
+          <div className="flex justify-end mb-4">
+            <button onClick={() => setShowReceivableForm(true)} className="btn btn-primary">
+              <Plus size={15} /> Nova Conta a Receber
+            </button>
+          </div>
           <DataTable
             columns={receivableColumns}
             data={processedReceivables}
             searchPlaceholder="Buscar por cliente, código ou origem..."
             searchFields={['customerName', 'code', 'originCode', 'description']}
             emptyMessage="Nenhuma conta a receber registrada."
-            actions={(r: any) => r.status !== 'pago' && r.status !== 'cancelado' ? (
+            actions={(r: AccountReceivable) => r.status !== 'pago' && r.status !== 'cancelado' ? (
               <button
                 onClick={() => openPayment('receivable', r)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-green-400 hover:bg-green-500/10 text-xs font-medium transition"
+                className="btn btn-secondary !py-1 !px-2.5 text-xs"
+                title={`Registrar recebimento de ${r.code}`}
               >
                 <CheckCircle size={13} /> Receber
               </button>
@@ -201,9 +294,9 @@ export const Financial: React.FC = () => {
 
       {/* Payables Tab */}
       {activeTab === 'payable' && (
-        <div className="arka-card p-5">
+        <div className="arka-card p-4 sm:p-5">
           <div className="flex justify-end mb-4">
-            <button onClick={() => setShowPayableForm(true)} className="btn btn-primary text-sm">
+            <button onClick={() => setShowPayableForm(true)} className="btn btn-primary">
               <Plus size={15} /> Nova Conta a Pagar
             </button>
           </div>
@@ -213,10 +306,11 @@ export const Financial: React.FC = () => {
             searchPlaceholder="Buscar por fornecedor ou descrição..."
             searchFields={['supplierName', 'code', 'description', 'category']}
             emptyMessage="Nenhuma conta a pagar registrada."
-            actions={(p: any) => p.status !== 'pago' && p.status !== 'cancelado' ? (
+            actions={(p: AccountPayable) => p.status !== 'pago' && p.status !== 'cancelado' ? (
               <button
                 onClick={() => openPayment('payable', p)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-green-400 hover:bg-green-500/10 text-xs font-medium transition"
+                className="btn btn-secondary !py-1 !px-2.5 text-xs"
+                title={`Registrar pagamento de ${p.code}`}
               >
                 <CheckCircle size={13} /> Pagar
               </button>
@@ -301,70 +395,216 @@ export const Financial: React.FC = () => {
         </div>
       )}
 
-      {/* Payment Modal */}
-      {showPaymentModal && paymentTarget && (
+      {/* Baixa de título (recebimento ou pagamento) */}
+      {paymentTarget && (
         <Modal
-          isOpen={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
+          isOpen
+          onClose={closePayment}
           title={paymentTarget.type === 'receivable' ? 'Registrar Recebimento' : 'Registrar Pagamento'}
+          description={paymentTarget.item.code}
           maxWidth="md"
+          footer={
+            <>
+              <button onClick={closePayment} className="btn btn-secondary">Cancelar</button>
+              <button onClick={handlePayment} disabled={paymentSaving} className="btn btn-success">
+                {paymentSaving ? 'Registrando...' : 'Confirmar'}
+              </button>
+            </>
+          }
         >
           <div className="space-y-4">
             {paymentAlert && <Alert type={paymentAlert.type} message={paymentAlert.message} onClose={() => setPaymentAlert(null)} />}
-            <div className="p-3 rounded-xl" style={{ background: 'rgba(59,130,246,0.06)' }}>
+
+            <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
               <p className="text-sm font-medium text-[var(--text-main)]">{paymentTarget.item.description}</p>
-              <p className="text-xs text-[var(--text-muted)]">
-                Valor total: {formatCurrency(paymentTarget.item.amount)} · Pago: {formatCurrency((paymentTarget.item as any).paidAmount || 0)}
-              </p>
+              <div className="mt-1.5 grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <p className="text-[var(--text-muted)]">Total</p>
+                  <p className="font-semibold tabular">{formatCurrency(paymentTarget.item.amount)}</p>
+                </div>
+                <div>
+                  <p className="text-[var(--text-muted)]">Já baixado</p>
+                  <p className="font-semibold tabular">{formatCurrency(paymentTarget.item.paidAmount || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[var(--text-muted)]">Em aberto</p>
+                  <p className="font-semibold tabular text-amber-600 dark:text-amber-400">
+                    {formatCurrency(paymentTarget.item.amount - (paymentTarget.item.paidAmount || 0))}
+                  </p>
+                </div>
+              </div>
             </div>
-            <FormGroup label="Valor do Pagamento (R$)" required>
-              <input type="number" min="0.01" step="0.01" className="arka-input" value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} />
+
+            <FormGroup
+              label="Valor (R$)"
+              required
+              hint="Aceita baixa parcial: o título continua pendente pelo saldo restante."
+            >
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                className="arka-input"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(Number(e.target.value))}
+              />
             </FormGroup>
-            <FormGroup label="Forma de Pagamento">
-              <select className="arka-select" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-                {PAYMENT_METHODS.filter((m) => m !== 'fiado').map((m) => (
-                  <option key={m} value={m}>{paymentMethodLabel[m]}</option>
-                ))}
-              </select>
-            </FormGroup>
-            <FormGroup label="Data do Pagamento">
-              <input type="date" className="arka-input" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
-            </FormGroup>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowPaymentModal(false)} className="btn btn-secondary">Cancelar</button>
-              <button onClick={handlePayment} className="btn btn-success">Confirmar</button>
-            </div>
+
+            <FormRow cols={2}>
+              <FormGroup label="Forma de pagamento">
+                <select className="arka-select" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
+                  {PAYMENT_METHODS.filter((m) => m !== 'fiado').map((m) => (
+                    <option key={m} value={m}>{paymentMethodLabel[m]}</option>
+                  ))}
+                </select>
+              </FormGroup>
+              <FormGroup label="Data">
+                <input type="date" className="arka-input" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+              </FormGroup>
+            </FormRow>
           </div>
         </Modal>
       )}
 
-      {/* Add Payable Form Modal */}
-      <Modal isOpen={showPayableForm} onClose={() => setShowPayableForm(false)} title="Nova Conta a Pagar" maxWidth="md">
+      {/* Nova conta a receber (lançamento manual) */}
+      <Modal
+        isOpen={showReceivableForm}
+        onClose={closeReceivableForm}
+        title="Nova Conta a Receber"
+        description="Para cobranças que não vêm de uma venda ou ordem de serviço."
+        maxWidth="md"
+        footer={
+          <>
+            <button onClick={closeReceivableForm} className="btn btn-secondary">Cancelar</button>
+            <button onClick={handleAddReceivable} disabled={receivableSaving} className="btn btn-primary">
+              {receivableSaving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {receivableAlert && <Alert type={receivableAlert.type} message={receivableAlert.message} onClose={() => setReceivableAlert(null)} />}
+
+          <FormGroup label="Cliente" required>
+            <select
+              className="arka-select"
+              value={receivableForm.customerId}
+              onChange={(e) => setReceivableForm((f) => ({ ...f, customerId: Number(e.target.value) }))}
+            >
+              <option value={0}>- Selecione -</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </FormGroup>
+
+          <FormGroup label="Descrição" required>
+            <input
+              className="arka-input"
+              value={receivableForm.description}
+              onChange={(e) => setReceivableForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Ex: Contrato de manutenção mensal"
+            />
+          </FormGroup>
+
+          <FormGroup label="Categoria">
+            <input
+              className="arka-input"
+              value={receivableForm.category}
+              onChange={(e) => setReceivableForm((f) => ({ ...f, category: e.target.value }))}
+              placeholder="Ex: Contratos, Avulso..."
+            />
+          </FormGroup>
+
+          <FormRow cols={2}>
+            <FormGroup label="Valor (R$)" required>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="arka-input"
+                value={receivableForm.amount}
+                onChange={(e) => setReceivableForm((f) => ({ ...f, amount: Number(e.target.value) }))}
+              />
+            </FormGroup>
+            <FormGroup label="Vencimento" required>
+              <input
+                type="date"
+                className="arka-input"
+                value={receivableForm.dueDate}
+                onChange={(e) => setReceivableForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
+            </FormGroup>
+          </FormRow>
+        </div>
+      </Modal>
+
+      {/* Nova conta a pagar */}
+      <Modal
+        isOpen={showPayableForm}
+        onClose={closePayableForm}
+        title="Nova Conta a Pagar"
+        maxWidth="md"
+        footer={
+          <>
+            <button onClick={closePayableForm} className="btn btn-secondary">Cancelar</button>
+            <button onClick={handleAddPayable} disabled={payableSaving} className="btn btn-primary">
+              {payableSaving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           {payableAlert && <Alert type={payableAlert.type} message={payableAlert.message} onClose={() => setPayableAlert(null)} />}
-          <FormGroup label="Fornecedor / Nome" required>
-            <input className="arka-input" value={payableForm.supplierName} onChange={(e) => setPayableForm((f) => ({ ...f, supplierName: e.target.value }))} placeholder="Nome do fornecedor ou credor" />
+
+          <FormGroup label="Fornecedor / credor" required>
+            <input
+              className="arka-input"
+              value={payableForm.supplierName}
+              onChange={(e) => setPayableForm((f) => ({ ...f, supplierName: e.target.value }))}
+              placeholder="Nome do fornecedor ou credor"
+            />
           </FormGroup>
+
           <FormGroup label="Descrição" required>
-            <input className="arka-input" value={payableForm.description} onChange={(e) => setPayableForm((f) => ({ ...f, description: e.target.value }))} placeholder="Descrição da conta" />
+            <input
+              className="arka-input"
+              value={payableForm.description}
+              onChange={(e) => setPayableForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Descrição da conta"
+            />
           </FormGroup>
+
           <FormGroup label="Categoria">
-            <select className="arka-select" value={payableForm.category} onChange={(e) => setPayableForm((f) => ({ ...f, category: e.target.value }))}>
+            <select
+              className="arka-select"
+              value={payableForm.category}
+              onChange={(e) => setPayableForm((f) => ({ ...f, category: e.target.value }))}
+            >
               {PAYABLE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </FormGroup>
-          <FormRow>
+
+          <FormRow cols={2}>
             <FormGroup label="Valor (R$)" required>
-              <input type="number" min="0" step="0.01" className="arka-input" value={payableForm.amount} onChange={(e) => setPayableForm((f) => ({ ...f, amount: Number(e.target.value) }))} />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="arka-input"
+                value={payableForm.amount}
+                onChange={(e) => setPayableForm((f) => ({ ...f, amount: Number(e.target.value) }))}
+              />
             </FormGroup>
             <FormGroup label="Vencimento" required>
-              <input type="date" className="arka-input" value={payableForm.dueDate} onChange={(e) => setPayableForm((f) => ({ ...f, dueDate: e.target.value }))} />
+              <input
+                type="date"
+                className="arka-input"
+                value={payableForm.dueDate}
+                onChange={(e) => setPayableForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
             </FormGroup>
           </FormRow>
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setShowPayableForm(false)} className="btn btn-secondary">Cancelar</button>
-            <button onClick={handleAddPayable} className="btn btn-primary">Salvar</button>
-          </div>
         </div>
       </Modal>
     </div>

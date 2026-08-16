@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { User, UserRole } from '../types';
 import { db } from '../db/db';
+import { useLiveQuery } from '../data/useLiveQuery';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -14,18 +15,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
 
+  // Consulta reativa: se a lista mudar (cadastro, exclusão, restauração de
+  // backup), o seletor de usuário acompanha. Antes era carregada uma única vez.
+  const usersQuery = useLiveQuery(() => db.users.toArray(), []);
+  const allUsers = useMemo(() => usersQuery ?? [], [usersQuery]);
+
+  // Escolhe o primeiro usuário no boot e realinha se o usuário atual sair da lista.
   useEffect(() => {
-    async function loadUsers() {
-      const users = await db.users.toArray();
-      setAllUsers(users);
-      if (users.length > 0 && !currentUser) {
-        setCurrentUser(users[0]); // Default to Admin
-      }
-    }
-    loadUsers();
-  }, []);
+    if (allUsers.length === 0) return;
+
+    setCurrentUser((current) => {
+      if (!current) return allUsers[0];
+      const stillExists = allUsers.find((u) => u.id === current.id);
+      return stillExists ?? allUsers[0];
+    });
+  }, [allUsers]);
 
   const switchRole = (role: UserRole) => {
     const found = allUsers.find((u) => u.role === role);

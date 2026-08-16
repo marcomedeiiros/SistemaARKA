@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { SectionTitle, formatCurrency, formatDate, financialStatusColor, financialStatusLabel, osStatusLabel, osStatusColor, paymentMethodLabel } from '../common/FormComponents';
 import { reportService } from '../../services/reportService';
-import { BarChart3, Download, FileText } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+import { Download, FileText } from 'lucide-react';
 
 type ReportKey =
   | 'sales'
@@ -28,6 +29,7 @@ export const Reports: React.FC = () => {
   const [activeReport, setActiveReport] = useState<ReportKey>('sales');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const { showToast } = useToast();
 
   const sales = useLiveQuery(() => db.sales.orderBy('createdAt').reverse().toArray(), []) || [];
   const products = useLiveQuery(() => db.products.toArray(), []) || [];
@@ -66,129 +68,150 @@ export const Reports: React.FC = () => {
   });
   const topProducts = Object.values(productSales).sort((a, b) => b.totalQty - a.totalQty);
 
-  const handleExcelExport = () => {
-    let data: any[] = [];
-    let filename = 'relatorio.xlsx';
+  /**
+   * Monta uma única vez as linhas de cada relatório, já com os rótulos das
+   * colunas. Excel e PDF consomem a mesma estrutura antes o PDF tinha um
+   * mapeamento próprio e só cobria 2 dos 7 relatórios, caindo num alert() nos
+   * outros cinco.
+   */
+  const buildReport = (): { name: string; rows: Record<string, string | number>[] } => {
+    switch (activeReport) {
+      case 'sales':
+        return {
+          name: 'vendas',
+          rows: filteredSales.map((s) => ({
+            'Código': s.code,
+            'Data': formatDate(s.createdAt),
+            'Cliente': s.customerName,
+            'Itens': s.items.length,
+            'Subtotal': s.subtotal,
+            'Desconto': s.discount,
+            'Total': s.total,
+            'Pagamento': paymentMethodLabel[s.paymentMethod] ?? s.paymentMethod,
+            'Parcelas': s.installments,
+            'Status': s.status === 'concluida' ? 'Concluída' : 'Cancelada'
+          }))
+        };
 
-    if (activeReport === 'sales') {
-      data = filteredSales.map((s) => ({
-        'Código': s.code,
-        'Data': formatDate(s.createdAt),
-        'Cliente': s.customerName,
-        'Itens': s.items.length,
-        'Subtotal': s.subtotal,
-        'Desconto': s.discount,
-        'Total': s.total,
-        'Pagamento': paymentMethodLabel[s.paymentMethod],
-        'Parcelas': s.installments,
-        'Status': s.status
-      }));
-      filename = 'vendas.xlsx';
-    } else if (activeReport === 'products_sold') {
-      data = topProducts.map((p) => ({
-        'Produto': p.name,
-        'SKU': p.sku,
-        'Qtd. Vendida': p.totalQty,
-        'Receita Total': p.totalRevenue
-      }));
-      filename = 'produtos_vendidos.xlsx';
-    } else if (activeReport === 'stock') {
-      data = products.map((p) => ({
-        'SKU': p.sku,
-        'Nome': p.name,
-        'Categoria': p.categoryName,
-        'Estoque Atual': p.currentStock,
-        'Estoque Mínimo': p.minStock,
-        'Custo Unit.': p.costPrice,
-        'Valor Total Estoque': p.currentStock * p.costPrice,
-        'Status': p.active ? 'Ativo' : 'Inativo'
-      }));
-      filename = 'estoque.xlsx';
-    } else if (activeReport === 'os') {
-      data = filteredOS.map((o) => ({
-        'Código': o.code,
-        'Data Abertura': formatDate(o.openingDate),
-        'Cliente': o.customerName,
-        'Técnico': o.technicianName,
-        'Status': osStatusLabel[o.status],
-        'Problema': o.problemDescription,
-        'Total': o.total
-      }));
-      filename = 'ordens_servico.xlsx';
-    } else if (activeReport === 'receivable') {
-      data = filteredRec.map((r) => ({
-        'Código': r.code,
-        'Cliente': r.customerName,
-        'Descrição': r.description,
-        'Valor': r.amount,
-        'Pago': r.paidAmount,
-        'Vencimento': formatDate(r.dueDate),
-        'Status': financialStatusLabel[r.status]
-      }));
-      filename = 'contas_receber.xlsx';
-    } else if (activeReport === 'payable') {
-      data = filteredPay.map((p) => ({
-        'Código': p.code,
-        'Fornecedor': p.supplierName,
-        'Descrição': p.description,
-        'Categoria': p.category,
-        'Valor': p.amount,
-        'Pago': p.paidAmount,
-        'Vencimento': formatDate(p.dueDate),
-        'Status': financialStatusLabel[p.status]
-      }));
-      filename = 'contas_pagar.xlsx';
-    } else if (activeReport === 'customers') {
-      data = customers.map((c) => ({
-        'Nome': c.name,
-        'Documento': c.document,
-        'Telefone': c.phone,
-        'E-mail': c.email,
-        'Cidade': c.city,
-        'UF': c.state,
-        'Cadastrado em': formatDate(c.createdAt)
-      }));
-      filename = 'clientes.xlsx';
+      case 'products_sold':
+        return {
+          name: 'produtos_vendidos',
+          rows: topProducts.map((p, index) => ({
+            'Posição': index + 1,
+            'Produto': p.name,
+            'SKU': p.sku,
+            'Qtd. vendida': p.totalQty,
+            'Receita total': p.totalRevenue
+          }))
+        };
+
+      case 'stock':
+        return {
+          name: 'estoque',
+          rows: products.map((p) => ({
+            'SKU': p.sku,
+            'Nome': p.name,
+            'Categoria': p.categoryName ?? '-',
+            'Estoque atual': p.currentStock,
+            'Estoque mínimo': p.minStock,
+            'Custo unit.': p.costPrice,
+            'Valor em estoque': p.currentStock * p.costPrice,
+            'Status': p.active ? 'Ativo' : 'Inativo'
+          }))
+        };
+
+      case 'os':
+        return {
+          name: 'ordens_servico',
+          rows: filteredOS.map((o) => ({
+            'Código': o.code,
+            'Abertura': formatDate(o.openingDate),
+            'Cliente': o.customerName,
+            'Técnico': o.technicianName || '-',
+            'Status': osStatusLabel[o.status] ?? o.status,
+            'Problema': o.problemDescription,
+            'Total': o.total
+          }))
+        };
+
+      case 'receivable':
+        return {
+          name: 'contas_receber',
+          rows: filteredRec.map((r) => ({
+            'Código': r.code,
+            'Cliente': r.customerName,
+            'Descrição': r.description,
+            'Valor': r.amount,
+            'Pago': r.paidAmount ?? 0,
+            'Vencimento': formatDate(r.dueDate),
+            'Status': financialStatusLabel[r.status] ?? r.status
+          }))
+        };
+
+      case 'payable':
+        return {
+          name: 'contas_pagar',
+          rows: filteredPay.map((p) => ({
+            'Código': p.code,
+            'Fornecedor': p.supplierName,
+            'Descrição': p.description,
+            'Categoria': p.category,
+            'Valor': p.amount,
+            'Pago': p.paidAmount ?? 0,
+            'Vencimento': formatDate(p.dueDate),
+            'Status': financialStatusLabel[p.status] ?? p.status
+          }))
+        };
+
+      case 'customers':
+        return {
+          name: 'clientes',
+          rows: customers.map((c) => ({
+            'Nome': c.name,
+            'Documento': c.document || '-',
+            'Telefone': c.phone || '-',
+            'E-mail': c.email || '-',
+            'Cidade': c.city || '-',
+            'UF': c.state || '-',
+            'Cadastrado em': formatDate(c.createdAt)
+          }))
+        };
+    }
+  };
+
+  const reportLabel = REPORTS.find((r) => r.key === activeReport)?.label ?? 'Relatório';
+
+  const handleExcelExport = () => {
+    const { name, rows } = buildReport();
+
+    if (rows.length === 0) {
+      showToast('Não há dados para exportar com os filtros atuais.', 'warning');
+      return;
     }
 
-    reportService.exportToExcel(data, filename);
+    reportService.exportToExcel(rows, `${name}.xlsx`);
+    showToast('Planilha gerada.', 'success');
   };
 
   const handlePDFExport = () => {
-    if (activeReport === 'sales') {
-      reportService.exportToPDF(
-        'Relatório de Vendas',
-        [
-          { header: 'Código', key: 'code' },
-          { header: 'Data', key: 'createdAtFmt' },
-          { header: 'Cliente', key: 'customerName' },
-          { header: 'Total', key: 'totalFmt' },
-          { header: 'Pagamento', key: 'paymentMethodFmt' }
-        ],
-        filteredSales.map((s) => ({
-          ...s,
-          createdAtFmt: formatDate(s.createdAt),
-          totalFmt: formatCurrency(s.total),
-          paymentMethodFmt: paymentMethodLabel[s.paymentMethod]
-        })),
-        'vendas.pdf'
-      );
-    } else if (activeReport === 'stock') {
-      reportService.exportToPDF(
-        'Relatório de Estoque',
-        [
-          { header: 'SKU', key: 'sku' },
-          { header: 'Nome', key: 'name' },
-          { header: 'Estoque', key: 'currentStock' },
-          { header: 'Mínimo', key: 'minStock' },
-          { header: 'Vlr. Unit.', key: 'salePriceFmt' }
-        ],
-        products.map((p) => ({ ...p, salePriceFmt: formatCurrency(p.salePrice) })),
-        'estoque.pdf'
-      );
-    } else {
-      alert('Exportação PDF disponível para Vendas e Estoque. Use Excel para os demais relatórios.');
+    const { name, rows } = buildReport();
+
+    if (rows.length === 0) {
+      showToast('Não há dados para exportar com os filtros atuais.', 'warning');
+      return;
     }
+
+    // As colunas saem das chaves da primeira linha, então qualquer relatório
+    // exporta em PDF sem precisar de um mapeamento dedicado.
+    const columns = Object.keys(rows[0]).map((key) => ({ header: key, key }));
+
+    const period =
+      startDate || endDate
+        ? ` (${startDate ? formatDate(startDate) : 'início'} a ${endDate ? formatDate(endDate) : 'hoje'})`
+        : '';
+
+    reportService.exportToPDF(`${reportLabel}${period}`, columns, rows, `${name}.pdf`);
+    showToast('PDF gerado.', 'success');
   };
 
   const renderTable = () => {

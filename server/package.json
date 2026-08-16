@@ -1,0 +1,29 @@
+{
+  "name": "sistemas-arka-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API e banco de dados do Sistemas Arka ERP",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:reset": "tsx src/scripts/reset.ts"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "cors": "2.8.6",
+    "express": "5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "24.13.3",
+    "tsx": "4.23.12",
+    "typescript": "6.0.2"
+  }
+}

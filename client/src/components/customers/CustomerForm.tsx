@@ -143,7 +143,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ customer, onClose, o
         <textarea className="arka-input" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anotações internas sobre o cliente..." />
       </FormGroup>
 
-      <div className="flex justify-end gap-3 pt-2">
+      <div className="modal-actions">
         <button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
         <button type="submit" disabled={loading} className="btn btn-primary">
           {loading ? 'Salvando...' : customer?.id ? 'Atualizar' : 'Cadastrar'}

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../db/db';
 import { ActiveModule } from '../layout/Sidebar';
-import { Search, User, ClipboardList, ShoppingCart, Package, Settings, X, ArrowRight } from 'lucide-react';
+import { Search, User, ClipboardList, ShoppingCart, Package, X, ArrowRight } from 'lucide-react';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ interface SearchResultItem {
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavigate }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResultItem[]>([]);
+  const [highlight, setHighlight] = useState(0);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -64,9 +65,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
         return;
       }
 
-      // Search Customers
+      // Os campos usam `?? ''` porque um registro com campo vazio quebrava a busca.
       const customers = await db.customers
-        .filter((c) => c.name.toLowerCase().includes(q) || c.document.includes(q) || c.phone.includes(q))
+        .filter(
+          (c) =>
+            (c.name ?? '').toLowerCase().includes(q) ||
+            (c.document ?? '').toLowerCase().includes(q) ||
+            (c.phone ?? '').toLowerCase().includes(q)
+        )
         .limit(3)
         .toArray();
       customers.forEach((c) => {
@@ -81,7 +87,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
 
       // Search Service Orders
       const serviceOrders = await db.serviceOrders
-        .filter((os) => os.code.toLowerCase().includes(q) || os.customerName.toLowerCase().includes(q) || os.problemDescription.toLowerCase().includes(q))
+        .filter(
+          (os) =>
+            (os.code ?? '').toLowerCase().includes(q) ||
+            (os.customerName ?? '').toLowerCase().includes(q) ||
+            (os.problemDescription ?? '').toLowerCase().includes(q)
+        )
         .limit(3)
         .toArray();
       serviceOrders.forEach((os) => {
@@ -96,7 +107,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
 
       // Search Sales
       const sales = await db.sales
-        .filter((s) => s.code.toLowerCase().includes(q) || s.customerName.toLowerCase().includes(q))
+        .filter(
+          (s) =>
+            (s.code ?? '').toLowerCase().includes(q) ||
+            (s.customerName ?? '').toLowerCase().includes(q)
+        )
         .limit(3)
         .toArray();
       sales.forEach((s) => {
@@ -111,7 +126,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
 
       // Search Products
       const products = await db.products
-        .filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))
+        .filter(
+          (p) =>
+            (p.name ?? '').toLowerCase().includes(q) ||
+            (p.sku ?? '').toLowerCase().includes(q) ||
+            (p.barcode ?? '').toLowerCase().includes(q)
+        )
         .limit(3)
         .toArray();
       products.forEach((p) => {
@@ -125,17 +145,50 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
       });
 
       setResults(list);
+      setHighlight(0);
     };
 
-    searchAll();
+    searchAll().catch((error: unknown) => {
+      console.error('[arka] falha na busca rápida:', error);
+      setResults([]);
+    });
   }, [query, isOpen]);
 
-  if (!isOpen) return null;
+  const handleSelect = useCallback(
+    (item: SearchResultItem) => {
+      onNavigate(item.module);
+      onClose();
+    },
+    [onNavigate, onClose]
+  );
 
-  const handleSelect = (item: SearchResultItem) => {
-    onNavigate(item.module);
-    onClose();
-  };
+  // Setas navegam, Enter abre o item destacado.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setHighlight((current) => (results.length ? (current + 1) % results.length : 0));
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setHighlight((current) =>
+          results.length ? (current - 1 + results.length) % results.length : 0
+        );
+      } else if (event.key === 'Enter') {
+        const item = results[highlight];
+        if (item) {
+          event.preventDefault();
+          handleSelect(item);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, results, highlight, handleSelect]);
+
+  if (!isOpen) return null;
 
   const getIcon = (type: SearchResultItem['type']) => {
     switch (type) {
@@ -148,11 +201,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
   };
 
   return (
-    <div className="palette-overlay" onClick={onClose}>
-      <div
-        className="bg-[var(--bg-card)] text-[var(--text-main)] w-full max-w-xl rounded-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden animate-fade-in"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div
+      className="palette-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Busca rápida"
+    >
+      <div className="palette-panel" onMouseDown={(e) => e.stopPropagation()}>
         {/* Input Bar */}
         <div className="flex items-center px-4 py-3.5 border-b border-[var(--border-color)] gap-3">
           <Search size={18} className="text-[var(--text-muted)] flex-shrink-0" />
@@ -182,14 +240,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
             </div>
           ) : (
             <div className="space-y-1">
-              {results.map((item) => (
+              {results.map((item, index) => (
                 <button
                   key={item.id}
                   onClick={() => handleSelect(item)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-[var(--border-color)]/50 text-left transition group"
+                  onMouseEnter={() => setHighlight(index)}
+                  aria-selected={index === highlight}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${
+                    index === highlight ? 'bg-[var(--bg-subtle)]' : 'hover:bg-[var(--bg-subtle)]'
+                  }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-lg bg-[var(--border-color)]/40 flex-shrink-0">
+                    <div className="p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-color)] shrink-0">
                       {getIcon(item.type)}
                     </div>
                     <div className="min-w-0">
@@ -197,7 +259,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                       <p className="text-[11px] text-[var(--text-muted)] truncate">{item.subtitle}</p>
                     </div>
                   </div>
-                  <ArrowRight size={14} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                  <ArrowRight
+                    size={14}
+                    className={`text-[var(--text-muted)] shrink-0 ml-2 transition-opacity ${
+                      index === highlight ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
                 </button>
               ))}
             </div>
@@ -205,9 +272,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 bg-[var(--border-color)]/20 border-t border-[var(--border-color)] flex justify-between items-center text-[10px] text-[var(--text-muted)]">
-          <span>Use <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-main)] border border-[var(--border-color)] font-mono">ESC</kbd> para sair</span>
-          <span>Sistemas Arka Quick Search</span>
+        <div className="px-4 py-2 bg-[var(--bg-subtle)] border-t border-[var(--border-color)] flex flex-wrap gap-x-3 gap-y-1 justify-between items-center text-[10px] text-[var(--text-muted)]">
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono">↑↓</kbd>
+            navegar
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono">Enter</kbd>
+            abrir
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-mono">Esc</kbd>
+            sair
+          </span>
+          <span>Busca rápida do Sistemas Arka</span>
         </div>
       </div>
     </div>

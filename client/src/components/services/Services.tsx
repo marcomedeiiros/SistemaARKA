@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { ServiceItemCatalog } from '../../types';
 import { DataTable } from '../common/DataTable';
@@ -88,14 +88,31 @@ export const Services: React.FC = () => {
           emptyMessage="Nenhum serviço cadastrado. Adicione serviços para inserir nas OS."
           actions={(s: ServiceItemCatalog) => (
             <>
-              <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition"><Pencil size={15} /></button>
-              <button onClick={() => handleDelete(s)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition"><Trash2 size={15} /></button>
+              <button onClick={() => openEdit(s)} className="icon-btn icon-btn-amber" title="Editar" aria-label={`Editar ${s.name}`}>
+                <Pencil size={15} />
+              </button>
+              <button onClick={() => handleDelete(s)} className="icon-btn icon-btn-red" title="Excluir" aria-label={`Excluir ${s.name}`}>
+                <Trash2 size={15} />
+              </button>
             </>
           )}
         />
       </div>
 
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editService?.id ? 'Editar Serviço' : 'Novo Serviço'} maxWidth="lg">
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title={editService?.id ? 'Editar Serviço' : 'Novo Serviço'}
+        maxWidth="lg"
+        footer={
+          <>
+            <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancelar</button>
+            <button onClick={handleSave} disabled={loading} className="btn btn-primary">
+              {loading ? 'Salvando...' : 'Salvar'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
           <FormGroup label="Nome do Serviço" required>
@@ -117,17 +134,16 @@ export const Services: React.FC = () => {
               <input className="arka-input" value={form.estimatedDuration} onChange={(e) => set('estimatedDuration', e.target.value)} placeholder="Ex: 2h, 30min, 1 dia" />
             </FormGroup>
           </FormRow>
-          <div className="flex items-center gap-3">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={form.active} onChange={(e) => set('active', e.target.checked)} className="sr-only peer" />
-              <div className="w-10 h-5 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
-            </label>
-            <span className="text-sm">Serviço Ativo</span>
-          </div>
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancelar</button>
-            <button onClick={handleSave} disabled={loading} className="btn btn-primary">{loading ? 'Salvando...' : 'Salvar'}</button>
-          </div>
+          <label className="flex items-center gap-3 cursor-pointer w-fit">
+            <span className="switch">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => set('active', e.target.checked)}
+              />
+            </span>
+            <span className="text-sm font-medium text-[var(--text-main)]">Serviço ativo</span>
+          </label>
         </div>
       </Modal>
     </div>

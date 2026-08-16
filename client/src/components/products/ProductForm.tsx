@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
-import { Product, ProductCategory, Supplier } from '../../types';
+import { Product } from '../../types';
 import { FormGroup, FormRow, Alert } from '../common/FormComponents';
 import { formatCurrency } from '../common/FormComponents';
 import { TrendingUp } from 'lucide-react';
@@ -163,15 +163,23 @@ export const ProductForm: React.FC<ProductFormProps> = ({ product, onClose, onSa
         <input type="url" className="arka-input" value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="https://..." />
       </FormGroup>
 
-      <div className="flex items-center gap-3">
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" checked={form.active} onChange={(e) => set('active', e.target.checked)} className="sr-only peer" />
-          <div className="w-10 h-5 bg-gray-600 rounded-full peer peer-checked:bg-blue-600 transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
-        </label>
-        <span className="text-sm text-[var(--text-main)]">Produto Ativo</span>
-      </div>
+      <label className="flex items-center gap-3 cursor-pointer w-fit">
+        <span className="switch">
+          <input
+            type="checkbox"
+            checked={form.active}
+            onChange={(e) => set('active', e.target.checked)}
+          />
+        </span>
+        <span className="text-sm font-medium text-[var(--text-main)]">
+          Produto ativo
+          <span className="block text-xs font-normal text-[var(--text-muted)]">
+            Produtos inativos não aparecem no PDV nem nas ordens de serviço.
+          </span>
+        </span>
+      </label>
 
-      <div className="flex justify-end gap-3 pt-2">
+      <div className="modal-actions">
         <button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
         <button type="submit" disabled={loading} className="btn btn-primary">
           {loading ? 'Salvando...' : product?.id ? 'Atualizar' : 'Cadastrar'}

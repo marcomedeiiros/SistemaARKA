@@ -1,51 +1,10 @@
-import Dexie, { type Table } from 'dexie';
-import type {
-  User,
-  Customer,
-  Supplier,
-  ProductCategory,
-  Product,
-  ServiceItemCatalog,
-  StockMovement,
-  Sale,
-  ServiceOrder,
-  AccountReceivable,
-  AccountPayable,
-  CompanySettings
-} from '../types';
-
-export class ArkaDatabase extends Dexie {
-  users!: Table<User>;
-  customers!: Table<Customer>;
-  suppliers!: Table<Supplier>;
-  categories!: Table<ProductCategory>;
-  products!: Table<Product>;
-  services!: Table<ServiceItemCatalog>;
-  stockMovements!: Table<StockMovement>;
-  sales!: Table<Sale>;
-  serviceOrders!: Table<ServiceOrder>;
-  accountsReceivable!: Table<AccountReceivable>;
-  accountsPayable!: Table<AccountPayable>;
-  companySettings!: Table<CompanySettings>;
-
-  constructor() {
-    super('SistemasArkaERP');
-
-    this.version(1).stores({
-      users: '++id, email, role, active',
-      customers: '++id, name, document, phone, email',
-      suppliers: '++id, name, document, phone',
-      categories: '++id, name',
-      products: '++id, sku, barcode, categoryId, supplierId, active',
-      services: '++id, name, category, active',
-      stockMovements: '++id, productId, type, referenceType, referenceId, createdAt',
-      sales: '++id, code, customerId, status, paymentMethod, createdAt',
-      serviceOrders: '++id, code, customerId, status, technicianId, createdAt',
-      accountsReceivable: '++id, code, customerId, status, dueDate, originType, originId',
-      accountsPayable: '++id, code, supplierId, status, dueDate',
-      companySettings: '++id'
-    });
-  }
-}
-
-export const db = new ArkaDatabase();
+/**
+ * Ponto de entrada histórico da camada de dados.
+ *
+ * O armazenamento local no navegador (Dexie/IndexedDB) foi substituído pela API
+ * em `server/`. Este arquivo mantém o caminho de importação usado pelos módulos
+ * e apenas reexporta o acesso baseado na API.
+ */
+export { db, store, initializeData } from '../data/store';
+export type { Snapshot, TableName } from '../data/store';
+export { admin, operations } from '../data/operations';

@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { DataTable } from '../common/DataTable';
-import { SectionTitle, StatCard, formatCurrency, formatDate } from '../common/FormComponents';
+import { Modal } from '../common/Modal';
+import {
+  SectionTitle, StatCard, FormGroup, FormRow, Alert, formatCurrency
+} from '../common/FormComponents';
 import { reportService } from '../../services/reportService';
-import { Layers, AlertTriangle, TrendingDown, DollarSign, Download } from 'lucide-react';
+import { inventoryService } from '../../services/inventoryService';
+import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { StockMovementType } from '../../types';
+import { Layers, AlertTriangle, TrendingDown, DollarSign, Download, Plus } from 'lucide-react';
 
 const movTypeLabel: Record<string, string> = {
   entrada: 'Entrada',
@@ -22,10 +29,74 @@ const movTypeColor: Record<string, string> = {
   os: 'badge-blue'
 };
 
+const emptyForm = {
+  productId: 0,
+  type: 'entrada' as StockMovementType,
+  quantity: 1,
+  reason: ''
+};
+
 export const StockMovements: React.FC = () => {
   const movements = useLiveQuery(() => db.stockMovements.orderBy('createdAt').reverse().toArray(), []) || [];
   const products = useLiveQuery(() => db.products.toArray(), []) || [];
   const [filterType, setFilterType] = useState<string>('all');
+
+  const { showToast } = useToast();
+  const { currentUser } = useAuth();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const selectedProduct = products.find((p) => p.id === Number(form.productId));
+
+  const openForm = () => {
+    setForm({ ...emptyForm });
+    setAlert(null);
+    setSaving(false);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setForm({ ...emptyForm });
+    setAlert(null);
+    setSaving(false);
+  };
+
+  const handleSave = async () => {
+    if (!form.productId) {
+      setAlert({ type: 'error', message: 'Selecione o produto.' });
+      return;
+    }
+    if (form.type !== 'ajuste' && form.quantity <= 0) {
+      setAlert({ type: 'error', message: 'Informe uma quantidade maior que zero.' });
+      return;
+    }
+    if (!form.reason.trim()) {
+      setAlert({ type: 'error', message: 'Informe o motivo da movimentação.' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await inventoryService.updateStock(
+        Number(form.productId),
+        form.type,
+        Number(form.quantity),
+        form.reason.trim(),
+        currentUser?.name
+      );
+      showToast('Movimentação registrada.', 'success');
+      closeForm();
+    } catch (err) {
+      setAlert({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao registrar a movimentação.'
+      });
+      setSaving(false);
+    }
+  };
 
   const totalValue = products.reduce((s, p) => s + p.currentStock * p.costPrice, 0);
   const lowStock = products.filter((p) => p.active && p.currentStock <= p.minStock);
@@ -99,7 +170,15 @@ export const StockMovements: React.FC = () => {
 
   return (
     <div className="page-container animate-fade-in">
-      <SectionTitle title="Controle de Estoque" subtitle="Movimentações e alertas de estoque" />
+      <SectionTitle
+        title="Controle de Estoque"
+        subtitle="Movimentações, alertas e valor imobilizado"
+        action={
+          <button onClick={openForm} className="btn btn-primary">
+            <Plus size={16} /> Nova Movimentação
+          </button>
+        }
+      />
 
       {/* Summary Cards */}
       <div className="kpi-grid">
@@ -159,6 +238,116 @@ export const StockMovements: React.FC = () => {
           emptyMessage="Nenhuma movimentação registrada."
         />
       </div>
+
+      {/* Nova movimentação manual */}
+      <Modal
+        isOpen={showForm}
+        onClose={closeForm}
+        title="Nova Movimentação de Estoque"
+        description="Entradas de compra, saídas por perda e ajustes de inventário."
+        maxWidth="md"
+        footer={
+          <>
+            <button onClick={closeForm} className="btn btn-secondary">Cancelar</button>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary">
+              {saving ? 'Registrando...' : 'Registrar'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
+
+          <FormGroup label="Produto" required>
+            <select
+              className="arka-select"
+              value={form.productId}
+              onChange={(e) => setForm((f) => ({ ...f, productId: Number(e.target.value) }))}
+            >
+              <option value={0}>- Selecione -</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.sku} · {p.name}
+                </option>
+              ))}
+            </select>
+          </FormGroup>
+
+          {selectedProduct && (
+            <div className="p-3 rounded-xl text-center bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+              <p className="text-xs text-[var(--text-muted)]">Estoque atual</p>
+              <p className="text-2xl font-bold text-arka-500 tabular">
+                {selectedProduct.currentStock}{' '}
+                <span className="text-sm font-medium">{selectedProduct.unit}</span>
+              </p>
+            </div>
+          )}
+
+          <FormGroup label="Tipo de movimentação">
+            <div className="grid grid-cols-3 gap-2">
+              {(['entrada', 'saida', 'ajuste'] as const).map((type) => {
+                const active = form.type === type;
+                const label = type === 'entrada' ? '↑ Entrada' : type === 'saida' ? '↓ Saída' : '⇄ Ajuste';
+                const color = type === 'entrada' ? '#10b981' : type === 'saida' ? '#ef4444' : '#f59e0b';
+
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, type }))}
+                    aria-pressed={active}
+                    className="py-2 rounded-lg text-sm font-medium border transition"
+                    style={{
+                      background: active ? `${color}1f` : 'transparent',
+                      borderColor: active ? color : 'var(--border-color)',
+                      color: active ? color : 'var(--text-muted)'
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </FormGroup>
+
+          <FormRow cols={2}>
+            <FormGroup
+              label={form.type === 'ajuste' ? 'Novo saldo total' : 'Quantidade'}
+              required
+              hint={form.type === 'ajuste' ? 'O saldo passa a ser exatamente este valor.' : undefined}
+            >
+              <input
+                type="number"
+                min="0"
+                step="any"
+                className="arka-input"
+                value={form.quantity}
+                onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
+              />
+            </FormGroup>
+            <FormGroup label="Saldo resultante">
+              <div className="arka-input flex items-center font-semibold">
+                {selectedProduct
+                  ? form.type === 'entrada'
+                    ? selectedProduct.currentStock + Number(form.quantity || 0)
+                    : form.type === 'saida'
+                      ? selectedProduct.currentStock - Number(form.quantity || 0)
+                      : Number(form.quantity || 0)
+                  : '-'}
+              </div>
+            </FormGroup>
+          </FormRow>
+
+          <FormGroup label="Motivo / observação" required>
+            <input
+              className="arka-input"
+              value={form.reason}
+              onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
+              placeholder="Ex: Compra fornecedor NF-4521, perda/avaria, contagem de inventário..."
+            />
+          </FormGroup>
+        </div>
+      </Modal>
     </div>
   );
 };

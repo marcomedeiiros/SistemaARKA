@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../db/db';
+import { admin } from '../../data/operations';
 import { CompanySettings } from '../../types';
-import { SectionTitle, FormRow, FormGroup } from '../common/FormComponents';
+import { SectionTitle, FormRow } from '../common/FormComponents';
 import { useToast } from '../../context/ToastContext';
-import { seedDatabase } from '../../db/seed';
-import { Building2, Save, Download, Upload, RefreshCw, ShieldCheck, Palette, FileText } from 'lucide-react';
+import { Building2, Save, Download, Upload, RefreshCw, ShieldCheck, Palette } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const { showToast } = useToast();
@@ -56,105 +56,83 @@ export const Settings: React.FC = () => {
     }
   };
 
-  // Export database to JSON
+  /** Baixa o conteúdo completo do banco (montado pelo servidor) como arquivo JSON. */
   const handleExportBackup = async () => {
+    setLoading(true);
     try {
-      const backupData = {
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        users: await db.users.toArray(),
-        customers: await db.customers.toArray(),
-        suppliers: await db.suppliers.toArray(),
-        categories: await db.categories.toArray(),
-        products: await db.products.toArray(),
-        services: await db.services.toArray(),
-        stockMovements: await db.stockMovements.toArray(),
-        sales: await db.sales.toArray(),
-        serviceOrders: await db.serviceOrders.toArray(),
-        accountsReceivable: await db.accountsReceivable.toArray(),
-        accountsPayable: await db.accountsPayable.toArray(),
-        companySettings: await db.companySettings.toArray()
-      };
+      const backupData = await admin.backup();
 
-      const jsonStr = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sistemas_arka_backup_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sistemas_arka_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
       showToast('Backup exportado com sucesso!', 'success');
     } catch (err) {
       console.error(err);
-      showToast('Erro ao exportar backup.', 'error');
+      showToast(err instanceof Error ? err.message : 'Erro ao exportar backup.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Import JSON backup
+  /**
+   * Restaura um backup. O servidor limpa e reinsere tudo em uma transação,
+   * preservando os ids para não quebrar as referências entre os registros.
+   */
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = async (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
+        const data = JSON.parse(String(event.target?.result ?? ''));
 
-        if (!data || typeof data !== 'object') {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
           throw new Error('Arquivo de backup inválido.');
         }
 
         const confirmRestore = window.confirm(
-          'ATENÇÃO: A restauração substituirá todos os dados atuais pelos dados do backup. Deseja continuar?'
+          'ATENÇÃO: a restauração substituirá todos os dados atuais pelos dados do backup. Deseja continuar?'
         );
-
         if (!confirmRestore) return;
 
         setLoading(true);
+        await admin.restore(data);
 
-        // Clear existing tables and import
-        await Promise.all([
-          db.users.clear(),
-          db.customers.clear(),
-          db.suppliers.clear(),
-          db.categories.clear(),
-          db.products.clear(),
-          db.services.clear(),
-          db.stockMovements.clear(),
-          db.sales.clear(),
-          db.serviceOrders.clear(),
-          db.accountsReceivable.clear(),
-          db.accountsPayable.clear(),
-          db.companySettings.clear()
-        ]);
+        const restored = await db.companySettings.toCollection().first();
+        if (restored) setCompany(restored);
 
-        if (data.users?.length) await db.users.bulkAdd(data.users);
-        if (data.customers?.length) await db.customers.bulkAdd(data.customers);
-        if (data.suppliers?.length) await db.suppliers.bulkAdd(data.suppliers);
-        if (data.categories?.length) await db.categories.bulkAdd(data.categories);
-        if (data.products?.length) await db.products.bulkAdd(data.products);
-        if (data.services?.length) await db.services.bulkAdd(data.services);
-        if (data.stockMovements?.length) await db.stockMovements.bulkAdd(data.stockMovements);
-        if (data.sales?.length) await db.sales.bulkAdd(data.sales);
-        if (data.serviceOrders?.length) await db.serviceOrders.bulkAdd(data.serviceOrders);
-        if (data.accountsReceivable?.length) await db.accountsReceivable.bulkAdd(data.accountsReceivable);
-        if (data.accountsPayable?.length) await db.accountsPayable.bulkAdd(data.accountsPayable);
-        if (data.companySettings?.length) await db.companySettings.bulkAdd(data.companySettings);
-
-        showToast('Dados restaurados com sucesso! Recarregando a página...', 'success');
-        setTimeout(() => window.location.reload(), 1500);
+        showToast('Dados restaurados com sucesso!', 'success');
       } catch (err) {
         console.error(err);
-        showToast('Falha ao restaurar o backup. Verifique se o arquivo JSON está correto.', 'error');
+        showToast(
+          err instanceof Error
+            ? `Falha ao restaurar: ${err.message}`
+            : 'Falha ao restaurar o backup. Verifique se o arquivo JSON está correto.',
+          'error'
+        );
       } finally {
         setLoading(false);
+        // Libera o input para permitir reenviar o mesmo arquivo.
+        input.value = '';
       }
     };
+
+    reader.onerror = () => {
+      showToast('Não foi possível ler o arquivo selecionado.', 'error');
+      input.value = '';
+    };
+
     reader.readAsText(file);
   };
 
@@ -166,12 +144,18 @@ export const Settings: React.FC = () => {
 
     setLoading(true);
     try {
-      await seedDatabase(true);
+      await admin.seed();
+
+      const restored = await db.companySettings.toCollection().first();
+      if (restored) setCompany(restored);
+
       showToast('Banco de dados redefinido para a demonstração!', 'info');
-      setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       console.error(err);
-      showToast('Erro ao redefinir banco de dados.', 'error');
+      showToast(
+        err instanceof Error ? err.message : 'Erro ao redefinir banco de dados.',
+        'error'
+      );
     } finally {
       setLoading(false);
     }

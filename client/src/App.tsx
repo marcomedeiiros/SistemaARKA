@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import './styles/index.css';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -19,37 +20,64 @@ import { Suppliers } from './components/suppliers/Suppliers';
 import { Reports } from './components/reports/Reports';
 import { Users } from './components/users/Users';
 import { Settings } from './components/settings/Settings';
-import { seedDatabase } from './db/seed';
+import { initializeData } from './data/store';
 
 function AppContent() {
   const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [bootState, setBootState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [bootError, setBootError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  const connect = () => {
+    setBootState('loading');
+    initializeData()
+      .then(() => setBootState('ready'))
+      .catch((error: unknown) => {
+        console.error('Erro ao carregar os dados do servidor:', error);
+        setBootError(error instanceof Error ? error.message : String(error));
+        setBootState('error');
+      });
+  };
+
   useEffect(() => {
-    async function init() {
-      try {
-        await seedDatabase();
-        setIsInitialized(true);
-      } catch (error) {
-        console.error('Erro ao inicializar banco de dados:', error);
-        setIsInitialized(true); // Continue mesmo se houver erro
-      }
-    }
-    init();
+    connect();
 
     const handleCustomSearchOpen = () => setIsSearchOpen(true);
     window.addEventListener('open-command-palette', handleCustomSearchOpen);
     return () => window.removeEventListener('open-command-palette', handleCustomSearchOpen);
   }, []);
 
-  if (!isInitialized) {
+  if (bootState === 'loading') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[var(--bg-main)]">
+      <div className="boot-screen">
         <div className="text-center">
           <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--text-main)] font-semibold text-sm">Carregando Sistemas Arka ERP...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootState === 'error') {
+    return (
+      <div className="boot-screen">
+        <div className="boot-card">
+          <div className="boot-card-icon">
+            <AlertTriangle size={26} />
+          </div>
+          <h1 className="text-lg font-bold text-[var(--text-main)]">Servidor indisponível</h1>
+          <p className="text-sm text-[var(--text-muted)]">
+            Não foi possível carregar os dados do Sistemas Arka. Verifique se a API está em
+            execução e tente novamente.
+          </p>
+          <p className="boot-card-hint">
+            Na pasta <code>server/</code>, rode <code>npm run dev</code>.
+          </p>
+          {bootError && <p className="boot-card-detail">{bootError}</p>}
+          <button onClick={connect} className="btn btn-primary w-full">
+            <RefreshCw size={15} /> Tentar novamente
+          </button>
         </div>
       </div>
     );

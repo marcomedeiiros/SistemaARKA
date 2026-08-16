@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { Sale } from '../../types';
 import { DataTable } from '../common/DataTable';
 import { Modal } from '../common/Modal';
 import { SectionTitle, StatCard, formatCurrency, formatDate, paymentMethodLabel } from '../common/FormComponents';
 import { SalesForm } from './SalesForm';
-import { Plus, ShoppingCart, TrendingUp, DollarSign, Calendar, Eye, Trash2, Printer } from 'lucide-react';
+import { SaleReceipt } from './SaleReceipt';
+import { salesService } from '../../services/salesService';
+import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { Plus, ShoppingCart, TrendingUp, DollarSign, Calendar, Eye, Ban } from 'lucide-react';
 
 export const Sales: React.FC = () => {
   const sales = useLiveQuery(() => db.sales.orderBy('createdAt').reverse().toArray(), []) || [];
+  const { showToast } = useToast();
+  const { currentUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [viewSale, setViewSale] = useState<Sale | null>(null);
+  const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -33,9 +40,29 @@ export const Sales: React.FC = () => {
   const todaySales = sales.filter((s) => s.createdAt.startsWith(todayStr));
   const todayRevenue = todaySales.reduce((s, v) => s + v.total, 0);
 
-  const handleDelete = async (s: Sale) => {
-    if (window.confirm(`Cancelar a ${s.code}? Esta ação não pode ser desfeita.`)) {
-      await db.sales.delete(s.id!);
+  /**
+   * Cancela a venda preservando o histórico: o servidor marca o registro como
+   * `cancelada`, devolve os itens ao estoque e cancela a conta a receber.
+   */
+  const handleCancel = async (s: Sale) => {
+    if (s.status === 'cancelada') {
+      showToast(`A ${s.code} já está cancelada.`, 'info');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Cancelar a ${s.code}?\n\nOs produtos voltam para o estoque e a conta a receber vinculada é cancelada. A venda continua no histórico como "Cancelada".`
+    );
+    if (!confirmed) return;
+
+    setCancelingId(s.id!);
+    try {
+      await salesService.cancelSale(s.id!, currentUser?.name);
+      showToast(`${s.code} cancelada e estoque estornado.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao cancelar a venda.', 'error');
+    } finally {
+      setCancelingId(null);
     }
   };
 
@@ -106,23 +133,19 @@ export const Sales: React.FC = () => {
         <StatCard title="Faturamento Hoje" value={formatCurrency(todayRevenue)} icon={<Calendar size={20} />} color="amber" />
       </div>
 
-      {/* Date Filter */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--border-color)' }}>
-        {[
+      {/* Filtro de período */}
+      <div className="segmented">
+        {([
           { key: 'all', label: 'Todas' },
           { key: 'today', label: 'Hoje' },
           { key: 'week', label: 'Semana' },
           { key: 'month', label: 'Mês' }
-        ].map((f) => (
+        ] as const).map((f) => (
           <button
             key={f.key}
-            onClick={() => setDateFilter(f.key as any)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-            style={{
-              background: dateFilter === f.key ? 'var(--bg-card)' : 'transparent',
-              color: dateFilter === f.key ? 'var(--text-main)' : 'var(--text-muted)',
-              boxShadow: dateFilter === f.key ? '0 1px 4px rgba(0,0,0,0.15)' : 'none'
-            }}
+            onClick={() => setDateFilter(f.key)}
+            aria-pressed={dateFilter === f.key}
+            className="segmented-item"
           >
             {f.label}
           </button>
@@ -140,17 +163,20 @@ export const Sales: React.FC = () => {
             <>
               <button
                 onClick={() => setViewSale(s)}
-                className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 transition"
-                title="Ver Detalhes"
+                className="icon-btn icon-btn-blue"
+                title="Ver comprovante"
+                aria-label={`Ver comprovante da ${s.code}`}
               >
                 <Eye size={15} />
               </button>
               <button
-                onClick={() => handleDelete(s)}
-                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition"
-                title="Cancelar Venda"
+                onClick={() => handleCancel(s)}
+                disabled={s.status === 'cancelada' || cancelingId === s.id}
+                className="icon-btn icon-btn-red"
+                title={s.status === 'cancelada' ? 'Venda já cancelada' : 'Cancelar venda'}
+                aria-label={`Cancelar ${s.code}`}
               >
-                <Trash2 size={15} />
+                <Ban size={15} />
               </button>
             </>
           )}
@@ -162,47 +188,8 @@ export const Sales: React.FC = () => {
         <SalesForm onClose={() => setShowForm(false)} onSave={() => setShowForm(false)} />
       </Modal>
 
-      {/* View Sale Modal */}
-      {viewSale && (
-        <Modal isOpen={!!viewSale} onClose={() => setViewSale(null)} title={`Detalhes - ${viewSale.code}`} maxWidth="lg">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-[var(--text-muted)]">Cliente:</span> <span className="font-medium ml-1">{viewSale.customerName}</span></div>
-              <div><span className="text-[var(--text-muted)]">Data:</span> <span className="ml-1">{formatDate(viewSale.createdAt)}</span></div>
-              <div><span className="text-[var(--text-muted)]">Pagamento:</span> <span className="ml-1">{paymentMethodLabel[viewSale.paymentMethod]}</span></div>
-              {viewSale.installments > 1 && (
-                <div><span className="text-[var(--text-muted)]">Parcelas:</span> <span className="ml-1">{viewSale.installments}x de {formatCurrency(viewSale.total / viewSale.installments)}</span></div>
-              )}
-            </div>
-            <table className="arka-table">
-              <thead>
-                <tr><th>Produto</th><th>SKU</th><th>Qtd.</th><th>Unit.</th><th>Desc.</th><th>Total</th></tr>
-              </thead>
-              <tbody>
-                {viewSale.items.map((i) => (
-                  <tr key={i.productId}>
-                    <td>{i.productName}</td>
-                    <td className="text-xs text-[var(--text-muted)]">{i.sku}</td>
-                    <td>{i.quantity}</td>
-                    <td>{formatCurrency(i.unitPrice)}</td>
-                    <td className="text-red-400">{i.discount > 0 ? `-${formatCurrency(i.discount)}` : '-'}</td>
-                    <td className="font-bold">{formatCurrency(i.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="flex justify-between items-center pt-2 border-t border-[var(--border-color)]">
-              {viewSale.discount > 0 && (
-                <p className="text-sm text-red-400">Desconto: -{formatCurrency(viewSale.discount)}</p>
-              )}
-              <p className="text-xl font-bold text-green-400 ml-auto">TOTAL: {formatCurrency(viewSale.total)}</p>
-            </div>
-            <button onClick={() => window.print()} className="btn btn-secondary w-full">
-              <Printer size={14} /> Imprimir Comprovante
-            </button>
-          </div>
-        </Modal>
-      )}
+      {/* Comprovante da venda */}
+      {viewSale && <SaleReceipt sale={viewSale} onClose={() => setViewSale(null)} />}
     </div>
   );
 };

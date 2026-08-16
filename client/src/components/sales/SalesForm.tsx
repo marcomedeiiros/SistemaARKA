@@ -1,25 +1,27 @@
-import React, { useState, useCallback } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import React, { useState } from 'react';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { Product, Customer, SaleItem, PaymentMethod } from '../../types';
 import { salesService } from '../../services/salesService';
 import { formatCurrency, paymentMethodLabel, Alert } from '../common/FormComponents';
-import { Search, Plus, Minus, Trash2, ShoppingCart, X, Printer } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Search, Plus, Minus, Trash2, ShoppingCart, X, Printer, CheckCircle2 } from 'lucide-react';
 
 interface SalesFormProps {
   onClose: () => void;
   onSave: () => void;
 }
 
-interface CartItem extends SaleItem {
-  productUnit: string;
-}
+/** O carrinho guarda exatamente os itens que serão enviados na venda. */
+type CartItem = SaleItem;
 
 const PAYMENT_METHODS: PaymentMethod[] = ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'boleto', 'transferencia', 'fiado'];
 
 export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
   const products = useLiveQuery(() => db.products.filter((p) => p.active).toArray(), []) || [];
   const customers = useLiveQuery(() => db.customers.orderBy('name').toArray(), []) || [];
+  const company = useLiveQuery(() => db.companySettings.toCollection().first(), []);
+  const { currentUser } = useAuth();
 
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -59,7 +61,6 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
         productName: product.name,
         sku: product.sku,
         unit: product.unit,
-        productUnit: product.unit,
         quantity: 1,
         unitPrice: product.salePrice,
         discount: 0,
@@ -82,16 +83,23 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
     ));
   };
 
-  const updateItemDiscount = (productId: number, disc: number) => {
-    setCart((prev) => prev.map((i) =>
-      i.productId === productId
-        ? { ...i, discount: disc, subtotal: i.quantity * i.unitPrice - disc }
-        : i
-    ));
-  };
-
   const cartSubtotal = cart.reduce((s, i) => s + i.subtotal, 0);
   const cartTotal = cartSubtotal - discount + surcharge;
+
+  /** Limpa tudo para registrar outra venda sem fechar e reabrir o PDV. */
+  const startNewSale = () => {
+    setFinishedSale(null);
+    setCart([]);
+    setSelectedCustomer(null);
+    setCustomerSearch('');
+    setProductSearch('');
+    setDiscount(0);
+    setSurcharge(0);
+    setPaymentMethod('pix');
+    setInstallments(1);
+    setNotes('');
+    setAlert(null);
+  };
 
   const handleFinalize = async () => {
     if (!selectedCustomer) { setAlert({ type: 'error', message: 'Selecione um cliente.' }); return; }
@@ -111,7 +119,7 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
       const sale = await salesService.createSale({
         customerId: selectedCustomer.id!,
         customerName: selectedCustomer.name,
-        items: cart.map(({ productUnit, ...i }) => i),
+        items: cart,
         subtotal: cartSubtotal,
         discount,
         surcharge,
@@ -119,6 +127,7 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
         paymentMethod,
         installments,
         status: 'concluida',
+        sellerName: currentUser?.name,
         notes
       });
       setFinishedSale(sale);
@@ -132,55 +141,119 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
   if (finishedSale) {
     return (
       <div className="space-y-5">
-        <div className="text-center py-4">
-          <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
-            <ShoppingCart size={28} className="text-green-400" />
+        <div className="text-center py-2 no-print">
+          <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-2.5">
+            <CheckCircle2 size={26} className="text-emerald-500" />
           </div>
-          <h2 className="text-xl font-bold text-green-400">Venda Finalizada!</h2>
-          <p className="text-[var(--text-muted)]">{finishedSale.code}</p>
+          <h2 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+            Venda finalizada
+          </h2>
+          <p className="text-sm text-[var(--text-muted)]">
+            Estoque baixado e conta a receber gerada.
+          </p>
         </div>
 
-        {/* Receipt */}
-        <div className="p-5 rounded-xl space-y-3" style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
-          <div className="flex justify-between text-sm">
-            <span className="text-[var(--text-muted)]">Cliente</span>
-            <span className="font-medium">{finishedSale.customerName}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-[var(--text-muted)]">Forma de Pagamento</span>
-            <span className="font-medium">{paymentMethodLabel[finishedSale.paymentMethod]}</span>
-          </div>
-          {finishedSale.installments > 1 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-muted)]">Parcelamento</span>
-              <span className="font-medium">{finishedSale.installments}x de {formatCurrency(finishedSale.total / finishedSale.installments)}</span>
+        {/* Comprovante: marcado como print-root para sair sozinho na impressão. */}
+        <div className="print-root doc">
+          <header className="doc-header">
+            <div className="min-w-0">
+              <h2 className="doc-title">
+                {company?.tradeName || company?.name || 'Sistemas Arka'}
+              </h2>
+              {company?.cnpj && <p className="doc-meta">CNPJ: {company.cnpj}</p>}
+              {company?.phone && <p className="doc-meta">Tel: {company.phone}</p>}
             </div>
-          )}
-          <div className="border-t border-[var(--border-color)] pt-3">
-            {finishedSale.items.map((i: SaleItem) => (
-              <div key={i.productId} className="flex justify-between text-sm py-1">
-                <span>{i.quantity}x {i.productName}</span>
-                <span>{formatCurrency(i.subtotal)}</span>
+            <div className="doc-header-right">
+              <p className="doc-kind">Comprovante de Venda</p>
+              <p className="doc-code">{finishedSale.code}</p>
+            </div>
+          </header>
+
+          <section className="doc-section">
+            <h3 className="doc-section-title">Dados da venda</h3>
+            <dl className="doc-facts">
+              <div>
+                <dt>Cliente</dt>
+                <dd>{finishedSale.customerName}</dd>
               </div>
-            ))}
+              <div>
+                <dt>Pagamento</dt>
+                <dd>{paymentMethodLabel[finishedSale.paymentMethod]}</dd>
+              </div>
+              {finishedSale.installments > 1 && (
+                <div>
+                  <dt>Parcelamento</dt>
+                  <dd>
+                    {finishedSale.installments}x de{' '}
+                    {formatCurrency(finishedSale.total / finishedSale.installments)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="doc-table">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th className="text-center">Qtd.</th>
+                  <th className="text-right">Unit.</th>
+                  <th className="text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {finishedSale.items.map((item: SaleItem, index: number) => (
+                  <tr key={`${item.productId}-${index}`}>
+                    <td>{item.productName}</td>
+                    <td className="text-center">{item.quantity}</td>
+                    <td className="text-right tabular">{formatCurrency(item.unitPrice)}</td>
+                    <td className="text-right font-semibold tabular">
+                      {formatCurrency(item.subtotal)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {discount > 0 && (
-            <div className="flex justify-between text-sm text-red-400">
-              <span>Desconto</span><span>-{formatCurrency(discount)}</span>
+
+          <div className="doc-totals">
+            <div>
+              <span>Subtotal</span>
+              <span className="tabular">{formatCurrency(finishedSale.subtotal)}</span>
             </div>
-          )}
-          <div className="flex justify-between font-bold text-lg border-t border-[var(--border-color)] pt-2">
-            <span>TOTAL</span>
-            <span className="text-green-400">{formatCurrency(finishedSale.total)}</span>
+            {finishedSale.discount > 0 && (
+              <div className="doc-totals-negative">
+                <span>Desconto</span>
+                <span className="tabular">-{formatCurrency(finishedSale.discount)}</span>
+              </div>
+            )}
+            {finishedSale.surcharge > 0 && (
+              <div>
+                <span>Acréscimo</span>
+                <span className="tabular">+{formatCurrency(finishedSale.surcharge)}</span>
+              </div>
+            )}
+            <div className="doc-totals-grand">
+              <span>Total</span>
+              <span className="tabular">{formatCurrency(finishedSale.total)}</span>
+            </div>
           </div>
+
+          {company?.termsAndConditions && (
+            <p className="doc-terms">{company.termsAndConditions}</p>
+          )}
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={() => window.print()} className="btn btn-secondary flex-1">
-            <Printer size={15} /> Imprimir Comprovante
+        <div className="modal-actions no-print">
+          <button onClick={() => window.print()} className="btn btn-secondary">
+            <Printer size={15} /> Imprimir comprovante
           </button>
-          <button onClick={() => { onSave(); onClose(); }} className="btn btn-primary flex-1">
-            Nova Venda / Fechar
+          <button onClick={startNewSale} className="btn btn-secondary">
+            <Plus size={15} /> Nova venda
+          </button>
+          <button onClick={() => { onSave(); onClose(); }} className="btn btn-primary">
+            Fechar
           </button>
         </div>
       </div>
@@ -248,26 +321,38 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
               </button>
             </div>
           ) : (
-            <div className="relative">
+            <div>
               <input
                 className="arka-input"
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
-                placeholder="Buscar cliente por nome ou CPF..."
+                placeholder="Buscar cliente por nome, CPF/CNPJ ou telefone..."
               />
-              {customerSearch && filteredCustomers.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border shadow-xl overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+              {/* Lista embutida em vez de flutuante: dentro do corpo rolável do
+                  modal, um dropdown absoluto era cortado. */}
+              {customerSearch.trim() && filteredCustomers.length > 0 && (
+                <div className="autocomplete-results">
                   {filteredCustomers.map((c) => (
                     <button
+                      type="button"
                       key={c.id}
                       onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); }}
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--border-color)]/50 transition"
+                      className="autocomplete-item"
                     >
-                      <p className="font-medium text-[var(--text-main)]">{c.name}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{c.document} · {c.phone}</p>
+                      <span className="min-w-0">
+                        <span className="block font-medium truncate">{c.name}</span>
+                        <span className="block text-xs text-[var(--text-muted)] truncate">
+                          {[c.document, c.phone].filter(Boolean).join(' · ') || 'Sem contato'}
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>
+              )}
+              {customerSearch.trim() && filteredCustomers.length === 0 && (
+                <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                  Nenhum cliente encontrado para "{customerSearch}".
+                </p>
               )}
             </div>
           )}

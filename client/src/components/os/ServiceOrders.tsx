@@ -1,13 +1,37 @@
 import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { OSForm } from './OSForm';
 import { OSDetail } from './OSDetail';
 import { ServiceOrder } from '../../types';
 import { formatDate, formatCurrency, osStatusLabel, osStatusColor, SectionTitle } from '../common/FormComponents';
+import { useToast } from '../../context/ToastContext';
 import { Plus, Eye, Edit3, Trash2 } from 'lucide-react';
 
+/** Texto completo usado no tooltip da coluna Descrição. */
+function fullDescription(os: ServiceOrder): string {
+  return os.requestedService?.trim() || os.problemDescription?.trim() || 'Sem descrição';
+}
+
+/**
+ * Resumo de uma linha para a listagem: prioriza o serviço a executar e cai no
+ * problema relatado quando ele não foi preenchido. As quebras de linha das
+ * listas de passos viram separadores, para caber em uma única linha.
+ */
+function summarize(os: ServiceOrder): string {
+  const text = os.requestedService?.trim() || os.problemDescription?.trim();
+  if (!text) return '-';
+
+  return text
+    .split(/\r?\n+/)
+    .map((line) => line.replace(/^\s*\d+[.)]\s*/, '').trim())
+    .filter(Boolean)
+    .join(' · ')
+    .replace(/\s{2,}/g, ' ');
+}
+
 export const ServiceOrders: React.FC = () => {
+  const { showToast } = useToast();
   const [filter, setFilter] = useState<'Todas' | 'Abertas' | 'Em Execução' | 'Concluídas' | 'Canceladas'>('Todas');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingOs, setEditingOs] = useState<ServiceOrder | undefined>(undefined);
@@ -39,9 +63,14 @@ export const ServiceOrders: React.FC = () => {
     };
   });
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta Ordem de Serviço?')) {
-      await db.serviceOrders.delete(id);
+  const handleDelete = async (os: ServiceOrder) => {
+    if (!window.confirm(`Excluir a ${os.code}? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+      await db.serviceOrders.delete(os.id!);
+      showToast(`${os.code} excluída.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao excluir a OS.', 'error');
     }
   };
 
@@ -89,16 +118,14 @@ export const ServiceOrders: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[var(--border-color)] overflow-x-auto gap-1">
-        {['Todas', 'Abertas', 'Em Execução', 'Concluídas', 'Canceladas'].map((tab) => (
+      <div className="tab-bar" role="tablist">
+        {(['Todas', 'Abertas', 'Em Execução', 'Concluídas', 'Canceladas'] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setFilter(tab as any)}
-            className={`px-4 py-2 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
-              filter === tab
-                ? 'text-blue-400 border-b-2 border-blue-500'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
+            role="tab"
+            aria-selected={filter === tab}
+            onClick={() => setFilter(tab)}
+            className="tab-item"
           >
             {tab}
           </button>
@@ -113,6 +140,7 @@ export const ServiceOrders: React.FC = () => {
               <tr>
                 <th>Código</th>
                 <th>Cliente</th>
+                <th>Descrição</th>
                 <th>Técnico</th>
                 <th>Abertura</th>
                 <th>Status</th>
@@ -125,6 +153,16 @@ export const ServiceOrders: React.FC = () => {
                 <tr key={os.id}>
                   <td className="font-mono text-xs text-blue-400 font-bold">{os.code}</td>
                   <td className="font-medium text-xs sm:text-sm">{os.customerName}</td>
+                  <td>
+                    {/* Resumo em uma linha. O texto completo fica no title, e a
+                        OS inteira no botão de visualizar. */}
+                    <span
+                      className="block max-w-[260px] truncate text-xs text-[var(--text-muted)]"
+                      title={fullDescription(os)}
+                    >
+                      {summarize(os)}
+                    </span>
+                  </td>
                   <td className="text-xs text-[var(--text-muted)]">{os.technicianName || '-'}</td>
                   <td className="text-xs">{formatDate(os.openingDate)}</td>
                   <td>
@@ -137,14 +175,29 @@ export const ServiceOrders: React.FC = () => {
                   </td>
                   <td className="text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => setViewingOsId(os.id!)} className="p-1.5 hover:bg-[var(--border-color)]/60 text-blue-400 rounded" title="Ver / Imprimir">
-                        <Eye size={16} />
+                      <button
+                        onClick={() => setViewingOsId(os.id!)}
+                        className="icon-btn icon-btn-blue"
+                        title="Ver / imprimir"
+                        aria-label={`Ver ${os.code}`}
+                      >
+                        <Eye size={15} />
                       </button>
-                      <button onClick={() => handleEdit(os)} className="p-1.5 hover:bg-[var(--border-color)]/60 text-amber-400 rounded" title="Editar">
-                        <Edit3 size={16} />
+                      <button
+                        onClick={() => handleEdit(os)}
+                        className="icon-btn icon-btn-amber"
+                        title="Editar"
+                        aria-label={`Editar ${os.code}`}
+                      >
+                        <Edit3 size={15} />
                       </button>
-                      <button onClick={() => handleDelete(os.id!)} className="p-1.5 hover:bg-[var(--border-color)]/60 text-red-400 rounded" title="Excluir">
-                        <Trash2 size={16} />
+                      <button
+                        onClick={() => handleDelete(os)}
+                        className="icon-btn icon-btn-red"
+                        title="Excluir"
+                        aria-label={`Excluir ${os.code}`}
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>
@@ -152,7 +205,7 @@ export const ServiceOrders: React.FC = () => {
               ))}
               {serviceOrders?.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-[var(--text-muted)]">
+                  <td colSpan={8} className="py-10 text-center text-[var(--text-muted)]">
                     Nenhuma Ordem de Serviço encontrada.
                   </td>
                 </tr>

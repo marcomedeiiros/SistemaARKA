@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../db/db';
 import { osService } from '../../services/osService';
 import { ServiceOrder, Customer, Product, ServiceItemCatalog, OSProduct, OSService, OSStatus } from '../../types';
-import { FormRow } from '../common/FormComponents';
+import { Alert, FormRow, formatCurrency } from '../common/FormComponents';
+import { Modal } from '../common/Modal';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 interface OSFormProps {
   os?: ServiceOrder;
@@ -11,6 +14,10 @@ interface OSFormProps {
 }
 
 export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
+  const { currentUser } = useAuth();
+  const { showToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [customerId, setCustomerId] = useState<number | ''>(os?.customerId || '');
   const [customerName, setCustomerName] = useState(os?.customerName || '');
   const [technicianName, setTechnicianName] = useState(os?.technicianName || '');
@@ -19,6 +26,7 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
   );
   const [status, setStatus] = useState<OSStatus>(os?.status || 'aberta');
   const [problemDescription, setProblemDescription] = useState(os?.problemDescription || '');
+  const [requestedService, setRequestedService] = useState(os?.requestedService || '');
   const [diagnosis, setDiagnosis] = useState(os?.diagnosis || '');
   const [executedSolution, setExecutedSolution] = useState(os?.executedSolution || '');
   const [notes, setNotes] = useState(os?.notes || '');
@@ -38,41 +46,94 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
   const [serviceSearch, setServiceSearch] = useState('');
   const [availableServices, setAvailableServices] = useState<ServiceItemCatalog[]>([]);
 
+  // As buscas procuram o termo em qualquer posição do texto (não só no início),
+  // o que encontra "Alfa" em "Grupo Comercial Alfa LTDA".
   useEffect(() => {
-    if (customerSearch) {
-      db.customers
-        .where('name').startsWithIgnoreCase(customerSearch)
-        .or('phone').startsWithIgnoreCase(customerSearch)
-        .limit(5)
-        .toArray()
-        .then(setCustomers);
-    } else {
+    const term = customerSearch.trim().toLowerCase();
+    if (!term) {
       setCustomers([]);
+      return;
     }
+
+    let active = true;
+    db.customers
+      .filter(
+        (c) =>
+          c.name.toLowerCase().includes(term) ||
+          (c.phone ?? '').toLowerCase().includes(term) ||
+          (c.document ?? '').toLowerCase().includes(term)
+      )
+      .limit(6)
+      .toArray()
+      .then((rows) => {
+        if (active) setCustomers(rows);
+      })
+      .catch(() => {
+        if (active) setCustomers([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [customerSearch]);
 
   useEffect(() => {
-    if (productSearch) {
-      db.products
-        .where('name').startsWithIgnoreCase(productSearch)
-        .limit(5)
-        .toArray()
-        .then(setAvailableProducts);
-    } else {
+    const term = productSearch.trim().toLowerCase();
+    if (!term) {
       setAvailableProducts([]);
+      return;
     }
+
+    let active = true;
+    db.products
+      .filter(
+        (p) =>
+          p.active &&
+          (p.name.toLowerCase().includes(term) ||
+            (p.sku ?? '').toLowerCase().includes(term) ||
+            (p.barcode ?? '').toLowerCase().includes(term))
+      )
+      .limit(6)
+      .toArray()
+      .then((rows) => {
+        if (active) setAvailableProducts(rows);
+      })
+      .catch(() => {
+        if (active) setAvailableProducts([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [productSearch]);
 
   useEffect(() => {
-    if (serviceSearch) {
-      db.services
-        .where('name').startsWithIgnoreCase(serviceSearch)
-        .limit(5)
-        .toArray()
-        .then(setAvailableServices);
-    } else {
+    const term = serviceSearch.trim().toLowerCase();
+    if (!term) {
       setAvailableServices([]);
+      return;
     }
+
+    let active = true;
+    db.services
+      .filter(
+        (s) =>
+          s.active &&
+          (s.name.toLowerCase().includes(term) ||
+            (s.category ?? '').toLowerCase().includes(term))
+      )
+      .limit(6)
+      .toArray()
+      .then((rows) => {
+        if (active) setAvailableServices(rows);
+      })
+      .catch(() => {
+        if (active) setAvailableServices([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [serviceSearch]);
 
   const selectCustomer = (c: Customer) => {
@@ -142,10 +203,22 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId || !openingDate || !problemDescription) {
-      alert('Por favor, preencha o cliente, data de abertura e descrição do problema.');
+
+    if (!customerId) {
+      setAlert({ type: 'error', message: 'Selecione o cliente da ordem de serviço.' });
       return;
     }
+    if (!openingDate) {
+      setAlert({ type: 'error', message: 'Informe a data de abertura.' });
+      return;
+    }
+    if (!problemDescription.trim()) {
+      setAlert({ type: 'error', message: 'Descreva o problema relatado pelo cliente.' });
+      return;
+    }
+
+    setAlert(null);
+    setSaving(true);
 
     const osData: Omit<ServiceOrder, 'id' | 'code' | 'createdAt' | 'updatedAt'> = {
       customerId: Number(customerId),
@@ -154,6 +227,7 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
       openingDate,
       status,
       problemDescription,
+      requestedService,
       diagnosis,
       executedSolution,
       notes,
@@ -168,14 +242,23 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
 
     try {
       if (os?.id) {
-        await osService.updateServiceOrder(os.id, osData);
+        await osService.updateServiceOrder(os.id, osData, currentUser?.name);
       } else {
-        await osService.createServiceOrder(osData);
+        await osService.createServiceOrder(osData, currentUser?.name);
       }
+      showToast(
+        os?.id ? `${os.code} atualizada com sucesso.` : 'Ordem de serviço criada com sucesso.',
+        'success'
+      );
       onSave();
     } catch (error) {
       console.error('Erro ao salvar OS:', error);
-      alert('Erro ao salvar Ordem de Serviço.');
+      setAlert({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Erro ao salvar a ordem de serviço.'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -192,35 +275,61 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
   ];
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-overlay-inner">
-      <div
-        className="bg-[var(--bg-card)] text-[var(--text-main)] p-6 sm:p-8 rounded-xl w-full max-w-4xl shadow-2xl border border-[var(--border-color)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-xl sm:text-2xl font-bold mb-4">{os ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={os ? `Editar ${os.code}` : 'Nova Ordem de Serviço'}
+      description={
+        os
+          ? 'Alterar para Concluída ou Entregue dá baixa nas peças e gera a conta a receber.'
+          : 'Registre o equipamento, o problema relatado e os itens utilizados.'
+      }
+      maxWidth="4xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            Cancelar
+          </button>
+          <button type="submit" form="os-form" disabled={saving} className="btn btn-primary">
+            {saving ? 'Salvando...' : 'Salvar Ordem de Serviço'}
+          </button>
+        </>
+      }
+    >
+      <form id="os-form" onSubmit={handleSubmit} className="space-y-4">
+          {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
           
           <FormRow cols={2}>
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Cliente *</label>
               {!customerId ? (
-                <div className="relative">
+                <div>
                   <input
                     type="text"
-                    placeholder="Buscar cliente..."
+                    placeholder="Buscar por nome, telefone ou documento..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
                     className="arka-input"
                   />
                   {customers.length > 0 && (
-                    <ul className="absolute top-full left-0 right-0 z-50 bg-[var(--bg-card)] border border-[var(--border-color)] mt-1 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                    <div className="autocomplete-results">
                       {customers.map((c) => (
-                        <li key={c.id} onClick={() => selectCustomer(c)} className="p-2 hover:bg-[var(--border-color)]/50 cursor-pointer text-sm">
-                          {c.name} <span className="text-xs text-[var(--text-muted)]">({c.phone})</span>
-                        </li>
+                        <button
+                          type="button"
+                          key={c.id}
+                          onClick={() => selectCustomer(c)}
+                          className="autocomplete-item"
+                        >
+                          <span className="truncate">{c.name}</span>
+                          <span className="text-xs text-[var(--text-muted)] shrink-0">{c.phone}</span>
+                        </button>
                       ))}
-                    </ul>
+                    </div>
+                  )}
+                  {customerSearch.trim() && customers.length === 0 && (
+                    <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                      Nenhum cliente encontrado para "{customerSearch}".
+                    </p>
                   )}
                 </div>
               ) : (
@@ -266,16 +375,46 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
             </div>
           </FormRow>
 
+          {/* Os campos seguem a ordem em que a OS é preenchida na prática:
+              o que o cliente relatou, o que o técnico deve fazer, o que foi
+              constatado e o que foi efetivamente executado. */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Problema Relatado *</label>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+              Problema Relatado <span className="text-red-400">*</span>
+            </label>
             <textarea
               value={problemDescription}
               onChange={(e) => setProblemDescription(e.target.value)}
               required
               rows={2}
               className="arka-input"
-              placeholder="Descreva a solicitação ou defeito informado pelo cliente..."
+              placeholder="Descreva a solicitação ou o defeito nas palavras do cliente..."
             />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              O que o cliente informou ao abrir a ordem de serviço.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+              Serviço a Executar
+            </label>
+            <textarea
+              value={requestedService}
+              onChange={(e) => setRequestedService(e.target.value)}
+              rows={3}
+              className="arka-input"
+              placeholder={
+                'Oriente o técnico sobre o que precisa ser feito. Ex.:\n' +
+                '1. Fazer backup dos arquivos do usuário antes de qualquer intervenção\n' +
+                '2. Substituir o HD pelo SSD de 1TB\n' +
+                '3. Instalar o Windows 11 e os programas do consultório\n' +
+                '4. Testar por 2h e devolver com a nota fiscal'
+              }
+            />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Instruções e escopo do trabalho. Sai impresso na OS para o técnico acompanhar.
+            </p>
           </div>
 
           <FormRow cols={2}>
@@ -284,9 +423,9 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
               <textarea
                 value={diagnosis}
                 onChange={(e) => setDiagnosis(e.target.value)}
-                rows={2}
+                rows={3}
                 className="arka-input"
-                placeholder="Parecer técnico / defeito constatado..."
+                placeholder="Parecer técnico / defeito constatado na bancada..."
               />
             </div>
             <div>
@@ -294,9 +433,9 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
               <textarea
                 value={executedSolution}
                 onChange={(e) => setExecutedSolution(e.target.value)}
-                rows={2}
+                rows={3}
                 className="arka-input"
-                placeholder="Descrição dos reparos ou procedimentos efetuados..."
+                placeholder="Reparos e procedimentos efetivamente realizados..."
               />
             </div>
           </FormRow>
@@ -304,23 +443,33 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
           {/* Products Table */}
           <div className="arka-card p-4 space-y-3">
             <h3 className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider">Produtos / Peças Utilizadas</h3>
-            <div className="relative">
+            <div>
               <input
                 type="text"
-                placeholder="Buscar produto por nome ou código..."
+                placeholder="Buscar produto por nome, SKU ou código de barras..."
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
                 className="arka-input"
               />
               {availableProducts.length > 0 && (
-                <ul className="absolute top-full left-0 right-0 z-50 bg-[var(--bg-card)] border border-[var(--border-color)] mt-1 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                <div className="autocomplete-results">
                   {availableProducts.map((p) => (
-                    <li key={p.id} onClick={() => addProduct(p)} className="p-2 hover:bg-[var(--border-color)]/50 cursor-pointer text-xs flex justify-between">
-                      <span>{p.name}</span>
-                      <span className="font-bold text-green-400">R$ {p.salePrice.toFixed(2)}</span>
-                    </li>
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => addProduct(p)}
+                      className="autocomplete-item"
+                    >
+                      <span className="truncate">
+                        {p.name}
+                        <span className="text-[var(--text-muted)]"> · {p.currentStock} {p.unit} em estoque</span>
+                      </span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 shrink-0 tabular">
+                        {formatCurrency(p.salePrice)}
+                      </span>
+                    </button>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
             
@@ -383,26 +532,40 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
           {/* Services Table */}
           <div className="arka-card p-4 space-y-3">
             <h3 className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider">Serviços Pretendidos / Mão de Obra</h3>
-            <div className="flex gap-2 relative">
-              <input
-                type="text"
-                placeholder="Buscar serviço no catálogo ou digitar nome avulso..."
-                value={serviceSearch}
-                onChange={(e) => setServiceSearch(e.target.value)}
-                className="arka-input"
-              />
-              <button type="button" onClick={() => serviceSearch && addService(serviceSearch)} className="btn btn-secondary text-xs">
-                Adicionar Avulso
-              </button>
+            <div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  placeholder="Buscar serviço no catálogo ou digitar um nome avulso..."
+                  value={serviceSearch}
+                  onChange={(e) => setServiceSearch(e.target.value)}
+                  className="arka-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => serviceSearch.trim() && addService(serviceSearch.trim())}
+                  disabled={!serviceSearch.trim()}
+                  className="btn btn-secondary shrink-0"
+                >
+                  Adicionar avulso
+                </button>
+              </div>
               {availableServices.length > 0 && (
-                <ul className="absolute top-full left-0 right-0 z-50 bg-[var(--bg-card)] border border-[var(--border-color)] mt-1 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                <div className="autocomplete-results">
                   {availableServices.map((s) => (
-                    <li key={s.id} onClick={() => addService(s)} className="p-2 hover:bg-[var(--border-color)]/50 cursor-pointer text-xs flex justify-between">
-                      <span>{s.name}</span>
-                      <span className="font-bold text-blue-400">R$ {s.price.toFixed(2)}</span>
-                    </li>
+                    <button
+                      type="button"
+                      key={s.id}
+                      onClick={() => addService(s)}
+                      className="autocomplete-item"
+                    >
+                      <span className="truncate">{s.name}</span>
+                      <span className="font-semibold text-arka-500 shrink-0 tabular">
+                        {formatCurrency(s.price)}
+                      </span>
+                    </button>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
 
@@ -502,13 +665,7 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border-color)]">
-            <button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
-            <button type="submit" className="btn btn-primary">Salvar Ordem de Serviço</button>
-          </div>
-        </form>
-      </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };

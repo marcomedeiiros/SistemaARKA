@@ -1,76 +1,67 @@
-import { db } from '../db/db';
-import { AccountReceivable, AccountPayable, PaymentMethod } from '../types';
+import { db } from '../data/store';
+import { operations } from '../data/operations';
+import { AccountPayable, AccountReceivable, PaymentMethod } from '../types';
 
+/**
+ * Financeiro.
+ *
+ * As baixas são validadas no servidor: valor precisa ser maior que zero e não
+ * pode passar do saldo em aberto do título.
+ */
 export const financialService = {
-  /**
-   * Generates next Receivable Code like REC #000003
-   */
-  async generateReceivableCode(): Promise<string> {
-    const count = await db.accountsReceivable.count();
-    return `REC #${String(count + 1).padStart(6, '0')}`;
+  generateReceivableCode(): Promise<string> {
+    return operations.nextCode('receivable');
   },
 
-  /**
-   * Generates next Payable Code like PAG #000003
-   */
-  async generatePayableCode(): Promise<string> {
-    const count = await db.accountsPayable.count();
-    return `PAG #${String(count + 1).padStart(6, '0')}`;
+  generatePayableCode(): Promise<string> {
+    return operations.nextCode('payable');
   },
 
-  /**
-   * Process a payment on an Account Receivable (supports partial payment)
-   */
-  async receivePayment(
+  /** Recebimento total ou parcial de uma conta a receber. */
+  receivePayment(
     id: number,
     paymentAmount: number,
     paymentMethod: PaymentMethod,
-    paymentDate = new Date().toISOString().split('T')[0]
-  ) {
-    const item = await db.accountsReceivable.get(id);
-    if (!item) throw new Error('Conta a receber não encontrada.');
-
-    const newPaidAmount = (item.paidAmount || 0) + paymentAmount;
-    item.paidAmount = Math.min(newPaidAmount, item.amount);
-    item.paymentMethod = paymentMethod;
-    item.paymentDate = paymentDate;
-
-    if (item.paidAmount >= item.amount) {
-      item.status = 'pago';
-    }
-
-    await db.accountsReceivable.put(item);
-    return item;
+    paymentDate?: string
+  ): Promise<AccountReceivable> {
+    return operations.receivePayment(id, { amount: paymentAmount, paymentMethod, paymentDate });
   },
 
-  /**
-   * Process a payment on an Account Payable
-   */
-  async payAccount(
+  /** Pagamento total ou parcial de uma conta a pagar. */
+  payAccount(
     id: number,
     paymentAmount: number,
     paymentMethod: PaymentMethod,
-    paymentDate = new Date().toISOString().split('T')[0]
-  ) {
-    const item = await db.accountsPayable.get(id);
-    if (!item) throw new Error('Conta a pagar não encontrada.');
-
-    const newPaidAmount = (item.paidAmount || 0) + paymentAmount;
-    item.paidAmount = Math.min(newPaidAmount, item.amount);
-    item.paymentMethod = paymentMethod;
-    item.paymentDate = paymentDate;
-
-    if (item.paidAmount >= item.amount) {
-      item.status = 'pago';
-    }
-
-    await db.accountsPayable.put(item);
-    return item;
+    paymentDate?: string
+  ): Promise<AccountPayable> {
+    return operations.payAccount(id, { amount: paymentAmount, paymentMethod, paymentDate });
   },
 
-  /**
-   * Get Cash Flow Summary (Entradas, Saídas, Saldo, Saldo Previsto, Overdue)
-   */
+  createReceivable(payload: {
+    customerId?: number;
+    customerName: string;
+    description: string;
+    amount: number;
+    dueDate: string;
+    category?: string;
+    notes?: string;
+  }): Promise<AccountReceivable> {
+    return operations.createReceivable(payload);
+  },
+
+  createPayable(payload: {
+    supplierId?: number;
+    supplierName: string;
+    description: string;
+    category?: string;
+    amount: number;
+    dueDate: string;
+    notes?: string;
+  }): Promise<AccountPayable> {
+    return operations.createPayable(payload);
+  },
+
+  /** Resumo do fluxo de caixa: realizado, previsto, saldo e valores vencidos. */
   async getCashFlowSummary(startDate?: string, endDate?: string) {
     let receivables = await db.accountsReceivable.toArray();
     let payables = await db.accountsPayable.toArray();
@@ -82,8 +73,8 @@ export const financialService = {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    let totalInflow = 0; // Total Realizado Recebido
-    let projectedInflow = 0; // Total Previsto
+    let totalInflow = 0;
+    let projectedInflow = 0;
     let overdueReceivables = 0;
 
     for (const r of receivables) {
@@ -95,8 +86,8 @@ export const financialService = {
       }
     }
 
-    let totalOutflow = 0; // Total Realizado Pago
-    let projectedOutflow = 0; // Total Previsto A Pagar
+    let totalOutflow = 0;
+    let projectedOutflow = 0;
     let overduePayables = 0;
 
     for (const p of payables) {
@@ -108,9 +99,6 @@ export const financialService = {
       }
     }
 
-    const currentBalance = totalInflow - totalOutflow;
-    const projectedBalance = projectedInflow - projectedOutflow;
-
     return {
       totalInflow,
       projectedInflow,
@@ -118,8 +106,8 @@ export const financialService = {
       totalOutflow,
       projectedOutflow,
       overduePayables,
-      currentBalance,
-      projectedBalance
+      currentBalance: totalInflow - totalOutflow,
+      projectedBalance: projectedInflow - projectedOutflow
     };
   }
 };

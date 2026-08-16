@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { StatCard } from '../common/StatCard';
 import { formatCurrency, formatDate, osStatusLabel, osStatusColor } from '../common/FormComponents';
