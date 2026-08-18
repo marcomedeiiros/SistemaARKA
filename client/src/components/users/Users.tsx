@@ -5,16 +5,16 @@ import { User, UserRole } from '../../types';
 import { DataTable } from '../common/DataTable';
 import { Modal } from '../common/Modal';
 import { SectionTitle, FormGroup, FormRow, Alert } from '../common/FormComponents';
+import { UserAvatar } from '../common/UserAvatar';
 import { Plus, Pencil, Trash2, Shield } from 'lucide-react';
 
 const ROLES: { value: UserRole; label: string; color: string; description: string }[] = [
   { value: 'admin', label: 'Administrador', color: '#3b82f6', description: 'Acesso total ao sistema' },
-  { value: 'seller', label: 'Vendedor', color: '#10b981', description: 'Acesso a vendas, clientes e produtos' },
-  { value: 'technician', label: 'Técnico', color: '#f59e0b', description: 'Acesso a Ordens de Serviço e estoque' },
+  { value: 'technician', label: 'Técnico', color: '#f59e0b', description: 'Acesso a Ordens de Serviço, vendas, clientes e estoque' },
   { value: 'financial', label: 'Financeiro', color: '#a855f7', description: 'Acesso ao módulo financeiro' }
 ];
 
-const empty = { name: '', email: '', role: 'seller' as UserRole, active: true };
+const empty = { name: '', email: '', role: 'technician' as UserRole, active: true };
 
 export const Users: React.FC = () => {
   const users = useLiveQuery(() => db.users.toArray(), []) || [];
@@ -54,20 +54,20 @@ export const Users: React.FC = () => {
     if (window.confirm(`Excluir o usuário "${u.name}"?`)) await db.users.delete(u.id!);
   };
 
-  const getRoleInfo = (role: UserRole) => ROLES.find((r) => r.value === role) || ROLES[1];
+  const getRoleInfo = (role: UserRole) =>
+    ROLES.find((r) => r.value === role) || ROLES.find((r) => r.value === 'technician')!;
 
   const columns = [
     {
       header: 'Usuário', key: 'name',
       render: (u: User) => (
         <div className="flex items-center gap-3">
-          {u.avatarUrl ? (
-            <img src={u.avatarUrl} alt={u.name} className="w-9 h-9 rounded-full object-cover" />
-          ) : (
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: getRoleInfo(u.role).color }}>
-              {u.name[0]}
-            </div>
-          )}
+          <UserAvatar
+            name={u.name}
+            avatarUrl={u.avatarUrl}
+            color={getRoleInfo(u.role).color}
+            size="md"
+          />
           <div>
             <p className="font-semibold text-[var(--text-main)]">{u.name}</p>
             <p className="text-xs text-[var(--text-muted)]">{u.email}</p>

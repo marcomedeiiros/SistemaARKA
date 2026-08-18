@@ -1186,11 +1186,23 @@
     border-bottom: 2px solid #0f172a;
   }
 
-  .doc-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: #0f172a;
+  /* Logo do documento. `contain` porque a marca é bem mais larga que alta e
+     não pode ser distorcida nem recortada. */
+  .doc-logo {
+    height: 2.75rem;
+    width: auto;
+    max-width: 15rem;
+    object-fit: contain;
+    object-position: left center;
+    margin-bottom: 0.5rem;
+  }
+
+  /* A marca da Arka é branca (feita para o fundo escuro da interface) e
+     desaparecia no documento. `brightness(0)` pinta a arte de preto preservando
+     a transparência, então não é preciso manter um segundo arquivo de logo.
+     Só se aplica à marca padrão: logo enviada pela empresa mantém as cores. */
+  .doc-logo-mono {
+    filter: brightness(0);
   }
 
   .doc-meta {
@@ -1567,9 +1579,40 @@
     display: none !important;
   }
 
-  /* Há um documento imprimível aberto: esconde o resto da aplicação. */
+  /* Há um documento imprimível aberto: esconde o resto da aplicação.
+     O modal fica em portal no <body>, ou seja, é irmão de `#root`. Esconder
+     apenas `.app-root` deixava `#root` no fluxo como uma caixa vazia de
+     `min-height: 100vh`, que rendia uma primeira folha em branco antes do
+     documento. Por isso o `#root` inteiro sai da impressão. */
+  body:has(.print-root) #root,
   body:has(.print-root) .app-root {
     display: none !important;
+  }
+
+  /* Rede de segurança: hoje todo documento imprimível nasce dentro de um Modal,
+     que é renderizado em portal no <body>. Se algum dia um `.print-root` for
+     colocado dentro da árvore da aplicação, a regra acima o esconderia e a
+     impressão sairia em branco isto o traz de volta. */
+  body:has(#root .print-root) #root {
+    display: block !important;
+  }
+
+  body:has(#root .print-root) .app-root {
+    display: block !important;
+  }
+
+  /* O Modal trava o scroll do fundo escrevendo `overflow` e `padding-right`
+     direto no style do body. Estilo inline vence a folha, então precisa ser
+     desfeito com `!important` para não deslocar nem cortar o papel. */
+  body:has(.print-root) {
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+
+  html,
+  body {
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   body:has(.print-root) .modal-overlay,
@@ -1581,9 +1624,14 @@
     background: none !important;
     backdrop-filter: none !important;
     animation: none !important;
+    /* Sem isto o inner continua pedindo 100% de altura e reabre a folha vazia. */
+    min-height: 0 !important;
   }
 
   body:has(.print-root) .modal-panel {
+    /* `block` em vez de `flex`: o painel deixa de ser um contêiner de altura
+       calculada e passa a fluir naturalmente entre as páginas. */
+    display: block !important;
     max-width: 100% !important;
     max-height: none !important;
     border: none !important;
@@ -1609,8 +1657,30 @@
     break-inside: avoid;
   }
 
+  /* O técnico lê estes blocos para executar o serviço: o texto não pode ser
+     partido entre duas folhas. O rótulo também não fica órfão no pé da página.
+     Quando o conteúdo é maior que uma folha o navegador ignora o `avoid` e
+     quebra normalmente, então não há risco de texto sumir. */
+  .doc-field {
+    break-inside: avoid;
+  }
+
+  .doc-field-label {
+    break-after: avoid;
+  }
+
+  .doc-section-title {
+    break-after: avoid;
+  }
+
   .doc-table th {
     background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Sem isto o navegador pode descartar a logo ao economizar tinta. */
+  .doc-logo {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

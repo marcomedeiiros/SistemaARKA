@@ -5,6 +5,7 @@ import { Product, Customer, SaleItem, PaymentMethod } from '../../types';
 import { salesService } from '../../services/salesService';
 import { formatCurrency, paymentMethodLabel, Alert } from '../common/FormComponents';
 import { useAuth } from '../../context/AuthContext';
+import { documentLogoProps } from '../../lib/brand';
 import { Search, Plus, Minus, Trash2, ShoppingCart, X, Printer, CheckCircle2 } from 'lucide-react';
 
 interface SalesFormProps {
@@ -157,9 +158,10 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
         <div className="print-root doc">
           <header className="doc-header">
             <div className="min-w-0">
-              <h2 className="doc-title">
-                {company?.tradeName || company?.name || 'Sistemas Arka'}
-              </h2>
+              <img
+                {...documentLogoProps(company?.logoUrl)}
+                alt={company?.tradeName || company?.name || 'Arka Tecnologia'}
+              />
               {company?.cnpj && <p className="doc-meta">CNPJ: {company.cnpj}</p>}
               {company?.phone && <p className="doc-meta">Tel: {company.phone}</p>}
             </div>

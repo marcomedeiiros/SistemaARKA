@@ -34,7 +34,7 @@ export const tables: TableDef[] = [
       name: { type: 'text', notNull: true },
       email: { type: 'text', notNull: true },
       password: { type: 'text' },
-      role: { type: 'text', notNull: true, fallback: 'seller' },
+      role: { type: 'text', notNull: true, fallback: 'technician' },
       active: { type: 'bool', notNull: true, fallback: true },
       avatarUrl: { type: 'text' },
       createdAt: timestamps.createdAt

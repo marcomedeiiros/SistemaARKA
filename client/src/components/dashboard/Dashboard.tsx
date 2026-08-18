@@ -41,9 +41,9 @@ export const Dashboard: React.FC = () => {
   const revenueMonth = monthSales.reduce((sum, s) => sum + s.total, 0);
 
   const openOS = serviceOrders.filter((o) =>
-    !['concluida', 'cancelada', 'entregue'].includes(o.status)
+    !['encerrada', 'cancelada'].includes(o.status)
   ).length;
-  const completedOS = serviceOrders.filter((o) => o.status === 'concluida' || o.status === 'entregue').length;
+  const completedOS = serviceOrders.filter((o) => o.status === 'encerrada').length;
 
   const totalReceivable = receivables
     .filter((r) => r.status === 'pendente' || r.status === 'vencido')

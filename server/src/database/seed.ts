@@ -5,6 +5,9 @@ import type { TableName } from '../types.js';
 const iso = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86_400_000).toISOString();
 const day = (offsetDays = 0) => iso(offsetDays).split('T')[0]!;
 
+/** Marca da Arka, servida pela raiz do cliente (client/public). */
+const ARKA_LOGO = '/arka-horizontal.webp';
+
 /** Remove todos os registros de todas as coleções. */
 export function clearAllTables(): void {
   for (const name of tableOrder) {
@@ -69,22 +72,23 @@ export function seedDatabase(): void {
 
     // 1. Usuários
     repositories.users.insertMany([
+      // As fotos de perfil usam a marca da Arka, servida por client/public.
+      // Antes apontavam para o Unsplash, o que deixava o sistema dependente de
+      // internet só para desenhar o avatar.
       {
         name: 'Carlos Oliveira (Admin)',
         email: 'admin@arka.com.br',
         role: 'admin',
         active: true,
-        avatarUrl:
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+        avatarUrl: ARKA_LOGO,
         createdAt: now
       },
       {
-        name: 'Mariana Santos (Vendedora)',
+        name: 'Mariana Santos (Técnica)',
         email: 'vendas@arka.com.br',
-        role: 'seller',
+        role: 'technician',
         active: true,
-        avatarUrl:
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=250&q=80',
+        avatarUrl: ARKA_LOGO,
         createdAt: now
       },
       {
@@ -92,8 +96,7 @@ export function seedDatabase(): void {
         email: 'tecnico@arka.com.br',
         role: 'technician',
         active: true,
-        avatarUrl:
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
+        avatarUrl: ARKA_LOGO,
         createdAt: now
       },
       {
@@ -101,8 +104,7 @@ export function seedDatabase(): void {
         email: 'financeiro@arka.com.br',
         role: 'financial',
         active: true,
-        avatarUrl:
-          'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=250&q=80',
+        avatarUrl: ARKA_LOGO,
         createdAt: now
       }
     ]);
@@ -395,7 +397,7 @@ export function seedDatabase(): void {
         technicianName: 'Roberto Técnico',
         openingDate: lastWeek,
         completionDate: yesterday,
-        status: 'concluida',
+        status: 'encerrada',
         problemDescription:
           'Servidor de arquivos desligando sozinho após 10 minutos de uso.',
         requestedService:

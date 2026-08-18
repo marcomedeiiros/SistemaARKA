@@ -30,7 +30,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({ customer }) =>
   ) || [];
 
   const totalSpent = sales.reduce((s, v) => s + v.total, 0)
-    + serviceOrders.filter((o) => o.status === 'concluida' || o.status === 'entregue').reduce((s, o) => s + o.total, 0);
+    + serviceOrders.filter((o) => o.status === 'encerrada').reduce((s, o) => s + o.total, 0);
 
   const openBalance = receivables
     .filter((r) => r.status === 'pendente' || r.status === 'vencido')

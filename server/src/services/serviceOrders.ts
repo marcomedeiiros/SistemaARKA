@@ -8,7 +8,7 @@ import type { OSStatus, ServiceOrder } from '../types.js';
 
 const today = () => new Date().toISOString().split('T')[0]!;
 
-const FINALIZED: OSStatus[] = ['concluida', 'entregue'];
+const FINALIZED: OSStatus[] = ['encerrada'];
 
 export function nextOsCode(): string {
   return nextSequentialCode(repositories.serviceOrders, 'OS');

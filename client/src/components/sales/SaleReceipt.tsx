@@ -5,6 +5,7 @@ import { db } from '../../db/db';
 import { useLiveQuery } from '../../data/useLiveQuery';
 import { Modal } from '../common/Modal';
 import { Sale } from '../../types';
+import { documentLogoProps } from '../../lib/brand';
 import { formatCurrency, formatDate, paymentMethodLabel } from '../common/FormComponents';
 
 interface SaleReceiptProps {
@@ -46,9 +47,12 @@ export const SaleReceipt: React.FC<SaleReceiptProps> = ({ sale, onClose }) => {
       <div className="print-root doc">
         <header className="doc-header">
           <div className="min-w-0">
-            <h2 className="doc-title">
-              {company?.tradeName || company?.name || 'Sistemas Arka'}
-            </h2>
+            {/* A logo identifica a empresa no documento; não repetimos o nome em
+                texto logo abaixo dela. */}
+            <img
+              {...documentLogoProps(company?.logoUrl)}
+              alt={company?.tradeName || company?.name || 'Arka Tecnologia'}
+            />
             {company?.cnpj && <p className="doc-meta">CNPJ: {company.cnpj}</p>}
             {company?.address && (
               <p className="doc-meta">

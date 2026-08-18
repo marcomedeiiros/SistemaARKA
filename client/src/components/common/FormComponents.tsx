@@ -147,26 +147,16 @@ export const paymentMethodLabel: Record<string, string> = {
 
 export const osStatusLabel: Record<string, string> = {
   aberta: 'Aberta',
-  em_analise: 'Em Análise',
-  aguardando_aprovacao: 'Aguard. Aprovação',
-  aprovada: 'Aprovada',
   em_execucao: 'Em Execução',
-  aguardando_peca: 'Aguard. Peça',
-  concluida: 'Concluída',
-  cancelada: 'Cancelada',
-  entregue: 'Entregue'
+  encerrada: 'Encerrada',
+  cancelada: 'Cancelada'
 };
 
 export const osStatusColor: Record<string, string> = {
   aberta: 'badge-blue',
-  em_analise: 'badge-purple',
-  aguardando_aprovacao: 'badge-amber',
-  aprovada: 'badge-green',
-  em_execucao: 'badge-blue',
-  aguardando_peca: 'badge-amber',
-  concluida: 'badge-green',
-  cancelada: 'badge-red',
-  entregue: 'badge-slate'
+  em_execucao: 'badge-purple',
+  encerrada: 'badge-green',
+  cancelada: 'badge-red'
 };
 
 export const financialStatusColor: Record<string, string> = {

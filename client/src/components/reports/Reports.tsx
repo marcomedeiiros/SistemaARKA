@@ -37,6 +37,7 @@ export const Reports: React.FC = () => {
   const receivables = useLiveQuery(() => db.accountsReceivable.orderBy('dueDate').toArray(), []) || [];
   const payables = useLiveQuery(() => db.accountsPayable.orderBy('dueDate').toArray(), []) || [];
   const customers = useLiveQuery(() => db.customers.orderBy('name').toArray(), []) || [];
+  const company = useLiveQuery(() => db.companySettings.toCollection().first(), []);
 
   const filterByDate = <T extends { createdAt?: string; dueDate?: string }>(
     data: T[],
@@ -193,7 +194,7 @@ export const Reports: React.FC = () => {
     showToast('Planilha gerada.', 'success');
   };
 
-  const handlePDFExport = () => {
+  const handlePDFExport = async () => {
     const { name, rows } = buildReport();
 
     if (rows.length === 0) {
@@ -210,8 +211,19 @@ export const Reports: React.FC = () => {
         ? ` (${startDate ? formatDate(startDate) : 'início'} a ${endDate ? formatDate(endDate) : 'hoje'})`
         : '';
 
-    reportService.exportToPDF(`${reportLabel}${period}`, columns, rows, `${name}.pdf`);
-    showToast('PDF gerado.', 'success');
+    try {
+      // A logo da empresa, quando cadastrada, substitui a marca da Arka.
+      await reportService.exportToPDF(
+        `${reportLabel}${period}`,
+        columns,
+        rows,
+        `${name}.pdf`,
+        company?.logoUrl
+      );
+      showToast('PDF gerado.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Não foi possível gerar o PDF.', 'error');
+    }
   };
 
   const renderTable = () => {

@@ -10,6 +10,7 @@ import { UserRole } from '../../types';
 import { useLiveQuery } from '../../data/useLiveQuery';
 import { db } from '../../db/db';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { UserAvatar } from '../common/UserAvatar';
 
 const moduleLabels: Record<string, string> = {
   dashboard: 'Dashboard Executivo',
@@ -28,14 +29,12 @@ const moduleLabels: Record<string, string> = {
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Administrador',
-  seller: 'Vendedor',
   technician: 'Técnico',
   financial: 'Financeiro'
 };
 
 const roleColors: Record<UserRole, string> = {
   admin: '#3b82f6',
-  seller: '#10b981',
   technician: '#f59e0b',
   financial: '#a855f7'
 };
@@ -99,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const openOsCount = useLiveQuery(async () => {
     const orders = await db.serviceOrders.toArray();
-    return orders.filter((o) => o.status === 'aberta' || o.status === 'em_analise').length;
+    return orders.filter((o) => o.status === 'aberta').length;
   }, []) ?? 0;
 
   const pendingReceivablesCount = useLiveQuery(async () => {
@@ -120,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
       module: 'os' as ActiveModule,
       icon: <ClipboardList size={16} className="text-blue-500 shrink-0 mt-0.5" />,
       title: 'Ordens de serviço abertas',
-      text: `${openOsCount} OS em aberto ou aguardando análise técnica.`
+      text: `${openOsCount} OS em aberto aguardando atendimento.`
     },
     pendingReceivablesCount > 0 && {
       key: 'financial',
@@ -256,21 +255,12 @@ export const Header: React.FC<HeaderProps> = ({
               aria-expanded={openMenu === 'user'}
               aria-haspopup="menu"
             >
-              {currentUser?.avatarUrl ? (
-                <img
-                  src={currentUser.avatarUrl}
-                  alt=""
-                  className="w-7 h-7 rounded-full object-cover"
-                  style={{ boxShadow: `0 0 0 2px ${roleColors[currentUser.role]}` }}
-                />
-              ) : (
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: roleColors[currentUser?.role || 'admin'] }}
-                >
-                  {currentUser?.name?.[0] ?? '?'}
-                </div>
-              )}
+              <UserAvatar
+                name={currentUser?.name}
+                avatarUrl={currentUser?.avatarUrl}
+                color={roleColors[currentUser?.role || 'admin']}
+                ring
+              />
 
               <div className="text-left hidden sm:block min-w-0">
                 <p className="text-xs font-semibold text-[var(--text-main)] leading-tight truncate max-w-[130px]">
@@ -307,16 +297,11 @@ export const Header: React.FC<HeaderProps> = ({
                       role="menuitem"
                       className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-[var(--bg-subtle)] transition"
                     >
-                      {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                          style={{ background: roleColors[user.role] }}
-                        >
-                          {user.name[0]}
-                        </div>
-                      )}
+                      <UserAvatar
+                        name={user.name}
+                        avatarUrl={user.avatarUrl}
+                        color={roleColors[user.role]}
+                      />
 
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-[var(--text-main)] leading-tight truncate">

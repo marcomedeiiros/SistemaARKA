@@ -8,6 +8,7 @@ import { OSStatus } from '../../types';
 import { Modal } from '../common/Modal';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { documentLogoProps } from '../../lib/brand';
 import {
   formatCurrency,
   formatDate,
@@ -21,19 +22,9 @@ interface OSDetailProps {
   onEdit: () => void;
 }
 
-const STATUS_OPTIONS: OSStatus[] = [
-  'aberta',
-  'em_analise',
-  'aguardando_aprovacao',
-  'aprovada',
-  'em_execucao',
-  'aguardando_peca',
-  'concluida',
-  'cancelada',
-  'entregue'
-];
+const STATUS_OPTIONS: OSStatus[] = ['aberta', 'em_execucao', 'encerrada', 'cancelada'];
 
-const FINALIZED: OSStatus[] = ['concluida', 'entregue'];
+const FINALIZED: OSStatus[] = ['encerrada'];
 
 /**
  * Visualização e impressão de uma ordem de serviço.
@@ -67,7 +58,7 @@ export const OSDetail: React.FC<OSDetailProps> = ({ osId, onClose, onEdit }) => 
     const willFinalize = FINALIZED.includes(nextStatus) && !FINALIZED.includes(os.status);
     if (willFinalize) {
       const confirmed = window.confirm(
-        'Concluir esta OS vai dar baixa nas peças utilizadas no estoque e gerar a conta a receber. Deseja continuar?'
+        'Encerrar esta OS vai dar baixa nas peças utilizadas no estoque e gerar a conta a receber. Deseja continuar?'
       );
       if (!confirmed) return;
     }
@@ -155,9 +146,10 @@ export const OSDetail: React.FC<OSDetailProps> = ({ osId, onClose, onEdit }) => 
         {/* Cabeçalho da empresa */}
         <header className="doc-header">
           <div className="min-w-0">
-            <h2 className="doc-title">
-              {company?.tradeName || company?.name || 'Sistemas Arka'}
-            </h2>
+            <img
+              {...documentLogoProps(company?.logoUrl)}
+              alt={company?.tradeName || company?.name || 'Arka Tecnologia'}
+            />
             {company?.address && (
               <p className="doc-meta">
                 {company.address}
@@ -223,30 +215,35 @@ export const OSDetail: React.FC<OSDetailProps> = ({ osId, onClose, onEdit }) => 
             </div>
           </dl>
 
+          {/* Todos os blocos abaixo usam `whitespace-pre-line`: o técnico
+              digita passos em linhas separadas e é assim que eles precisam ser
+              lidos, no papel e na tela. Sem isso o texto virava um parágrafo
+              corrido e dava a impressão de estar cortado. */}
           <div className="doc-field">
-            <p className="doc-field-label">Problema relatado</p>
-            <p className="doc-field-value">{os.problemDescription}</p>
+            <p className="doc-field-label">Problema relatado pelo cliente</p>
+            <p className="doc-field-value whitespace-pre-line">
+              {os.problemDescription?.trim() || 'Não informado.'}
+            </p>
           </div>
 
-          {os.requestedService && (
-            <div className="doc-field">
-              <p className="doc-field-label">Serviço a executar</p>
-              {/* pre-line preserva as quebras de linha de listas de passos. */}
-              <p className="doc-field-value whitespace-pre-line">{os.requestedService}</p>
-            </div>
-          )}
+          <div className="doc-field">
+            <p className="doc-field-label">Serviço a executar</p>
+            <p className="doc-field-value whitespace-pre-line">
+              {os.requestedService?.trim() || 'Não informado.'}
+            </p>
+          </div>
 
-          {os.diagnosis && (
+          {os.diagnosis?.trim() && (
             <div className="doc-field">
               <p className="doc-field-label">Diagnóstico técnico</p>
-              <p className="doc-field-value">{os.diagnosis}</p>
+              <p className="doc-field-value whitespace-pre-line">{os.diagnosis}</p>
             </div>
           )}
 
-          {os.executedSolution && (
+          {os.executedSolution?.trim() && (
             <div className="doc-field">
               <p className="doc-field-label">Solução executada</p>
-              <p className="doc-field-value">{os.executedSolution}</p>
+              <p className="doc-field-value whitespace-pre-line">{os.executedSolution}</p>
             </div>
           )}
         </section>
@@ -341,8 +338,8 @@ export const OSDetail: React.FC<OSDetailProps> = ({ osId, onClose, onEdit }) => 
           </div>
         </div>
 
-        {os.notes && (
-          <p className="doc-notes">
+        {os.notes?.trim() && (
+          <p className="doc-notes whitespace-pre-line">
             <strong>Observações internas:</strong> {os.notes}
           </p>
         )}

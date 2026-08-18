@@ -52,14 +52,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Administrador tem acesso total
     if (role === 'admin') return true;
 
-    // Vendedor: vendas, clientes, produtos, estoque (view), dashboard
-    if (role === 'seller') {
-      return ['dashboard', 'customers', 'products', 'sales', 'reports'].includes(module);
-    }
-
-    // Técnico: OS, clientes, serviços, estoque (view), dashboard
+    // Técnico: OS, vendas, clientes, serviços, estoque (view), dashboard
     if (role === 'technician') {
-      return ['dashboard', 'customers', 'os', 'services', 'products', 'reports'].includes(module);
+      return ['dashboard', 'customers', 'os', 'sales', 'services', 'products', 'reports'].includes(
+        module
+      );
     }
 
     // Financeiro: contas a pagar, contas a receber, fluxo de caixa, clientes, relatórios, dashboard

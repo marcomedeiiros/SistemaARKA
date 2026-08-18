@@ -425,30 +425,28 @@ export const Settings: React.FC = () => {
                 <tr>
                   <th>Módulo</th>
                   <th className="text-center">Admin</th>
-                  <th className="text-center">Vendedor</th>
                   <th className="text-center">Técnico</th>
                   <th className="text-center">Financeiro</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { name: 'Dashboard Executivo', admin: true, seller: true, tech: true, fin: true },
-                  { name: 'Gestão de Clientes', admin: true, seller: true, tech: true, fin: true },
-                  { name: 'Ordens de Serviço (OS)', admin: true, seller: false, tech: true, fin: false },
-                  { name: 'Vendas & PDV', admin: true, seller: true, tech: false, fin: false },
-                  { name: 'Catálogo de Produtos', admin: true, seller: true, tech: true, fin: false },
-                  { name: 'Catálogo de Serviços', admin: true, seller: false, tech: true, fin: false },
-                  { name: 'Controle de Estoque', admin: true, seller: true, tech: true, fin: false },
-                  { name: 'Contas a Pagar / Receber', admin: true, seller: false, tech: false, fin: true },
-                  { name: 'Gestão de Fornecedores', admin: true, seller: false, tech: false, fin: false },
-                  { name: 'Relatórios de Gestão', admin: true, seller: true, tech: true, fin: true },
-                  { name: 'Usuários & Permissões', admin: true, seller: false, tech: false, fin: false },
-                  { name: 'Configurações Globais', admin: true, seller: false, tech: false, fin: false }
+                  { name: 'Dashboard Executivo', admin: true, tech: true, fin: true },
+                  { name: 'Gestão de Clientes', admin: true, tech: true, fin: true },
+                  { name: 'Ordens de Serviço (OS)', admin: true, tech: true, fin: false },
+                  { name: 'Vendas & PDV', admin: true, tech: true, fin: false },
+                  { name: 'Catálogo de Produtos', admin: true, tech: true, fin: false },
+                  { name: 'Catálogo de Serviços', admin: true, tech: true, fin: false },
+                  { name: 'Controle de Estoque', admin: true, tech: true, fin: false },
+                  { name: 'Contas a Pagar / Receber', admin: true, tech: false, fin: true },
+                  { name: 'Gestão de Fornecedores', admin: true, tech: false, fin: false },
+                  { name: 'Relatórios de Gestão', admin: true, tech: true, fin: true },
+                  { name: 'Usuários & Permissões', admin: true, tech: false, fin: false },
+                  { name: 'Configurações Globais', admin: true, tech: false, fin: false }
                 ].map((row, i) => (
                   <tr key={i}>
                     <td className="font-semibold text-xs sm:text-sm">{row.name}</td>
                     <td className="text-center">{row.admin ? <span className="text-emerald-400 font-bold">✓</span> : <span className="text-slate-600">✕</span>}</td>
-                    <td className="text-center">{row.seller ? <span className="text-emerald-400 font-bold">✓</span> : <span className="text-slate-600">✕</span>}</td>
                     <td className="text-center">{row.tech ? <span className="text-emerald-400 font-bold">✓</span> : <span className="text-slate-600">✕</span>}</td>
                     <td className="text-center">{row.fin ? <span className="text-emerald-400 font-bold">✓</span> : <span className="text-slate-600">✕</span>}</td>
                   </tr>

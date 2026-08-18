@@ -264,14 +264,9 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
 
   const statusOptions: { value: OSStatus; label: string }[] = [
     { value: 'aberta', label: 'Aberta' },
-    { value: 'em_analise', label: 'Em Análise' },
-    { value: 'aguardando_aprovacao', label: 'Aguardando Aprovação' },
-    { value: 'aprovada', label: 'Aprovada' },
     { value: 'em_execucao', label: 'Em Execução' },
-    { value: 'aguardando_peca', label: 'Aguardando Peça' },
-    { value: 'concluida', label: 'Concluída' },
-    { value: 'cancelada', label: 'Cancelada' },
-    { value: 'entregue', label: 'Entregue' }
+    { value: 'encerrada', label: 'Encerrada' },
+    { value: 'cancelada', label: 'Cancelada' }
   ];
 
   return (
@@ -281,7 +276,7 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
       title={os ? `Editar ${os.code}` : 'Nova Ordem de Serviço'}
       description={
         os
-          ? 'Alterar para Concluída ou Entregue dá baixa nas peças e gera a conta a receber.'
+          ? 'Alterar para Encerrada dá baixa nas peças e gera a conta a receber.'
           : 'Registre o equipamento, o problema relatado e os itens utilizados.'
       }
       maxWidth="4xl"
@@ -386,12 +381,17 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
               value={problemDescription}
               onChange={(e) => setProblemDescription(e.target.value)}
               required
-              rows={2}
+              rows={4}
               className="arka-input"
-              placeholder="Descreva a solicitação ou o defeito nas palavras do cliente..."
+              placeholder={
+                'Descreva a solicitação ou o defeito nas palavras do cliente. Ex.:\n' +
+                'O notebook desliga sozinho depois de uns 10 minutos ligado.\n' +
+                'Já aconteceu na tomada e na bateria. Faz um chiado antes de apagar.'
+              }
             />
             <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-              O que o cliente informou ao abrir a ordem de serviço.
+              O que o cliente informou ao abrir a ordem de serviço. Pode usar várias linhas:
+              as quebras são preservadas na OS impressa.
             </p>
           </div>
 

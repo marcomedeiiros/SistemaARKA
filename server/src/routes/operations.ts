@@ -35,17 +35,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   'fiado'
 ];
 
-const OS_STATUSES: OSStatus[] = [
-  'aberta',
-  'em_analise',
-  'aguardando_aprovacao',
-  'aprovada',
-  'em_execucao',
-  'aguardando_peca',
-  'concluida',
-  'cancelada',
-  'entregue'
-];
+const OS_STATUSES: OSStatus[] = ['aberta', 'em_execucao', 'encerrada', 'cancelada'];
 
 /* ─────────────── Vendas ─────────────── */
 

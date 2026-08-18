@@ -32,7 +32,7 @@ function summarize(os: ServiceOrder): string {
 
 export const ServiceOrders: React.FC = () => {
   const { showToast } = useToast();
-  const [filter, setFilter] = useState<'Todas' | 'Abertas' | 'Em Execução' | 'Concluídas' | 'Canceladas'>('Todas');
+  const [filter, setFilter] = useState<'Todas' | 'Abertas' | 'Em Execução' | 'Encerradas' | 'Canceladas'>('Todas');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingOs, setEditingOs] = useState<ServiceOrder | undefined>(undefined);
   const [viewingOsId, setViewingOsId] = useState<number | null>(null);
@@ -43,8 +43,8 @@ export const ServiceOrders: React.FC = () => {
         return db.serviceOrders.where('status').equals('aberta').reverse().toArray();
       } else if (filter === 'Em Execução') {
         return db.serviceOrders.where('status').equals('em_execucao').reverse().toArray();
-      } else if (filter === 'Concluídas') {
-        return db.serviceOrders.where('status').anyOf(['concluida', 'entregue']).reverse().toArray();
+      } else if (filter === 'Encerradas') {
+        return db.serviceOrders.where('status').equals('encerrada').reverse().toArray();
       } else if (filter === 'Canceladas') {
         return db.serviceOrders.where('status').equals('cancelada').reverse().toArray();
       }
@@ -56,10 +56,10 @@ export const ServiceOrders: React.FC = () => {
   const stats = useLiveQuery(async () => {
     const all = await db.serviceOrders.toArray();
     return {
-      abertas: all.filter((os) => os.status === 'aberta' || os.status === 'em_analise').length,
+      abertas: all.filter((os) => os.status === 'aberta').length,
       emExecucao: all.filter((os) => os.status === 'em_execucao').length,
-      aguardandoPeca: all.filter((os) => os.status === 'aguardando_peca').length,
-      concluidas: all.filter((os) => os.status === 'concluida' || os.status === 'entregue').length,
+      encerradas: all.filter((os) => os.status === 'encerrada').length,
+      canceladas: all.filter((os) => os.status === 'cancelada').length,
     };
   });
 
@@ -100,26 +100,26 @@ export const ServiceOrders: React.FC = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="arka-card p-4 border-l-4 border-l-blue-500">
-          <p className="text-xs text-[var(--text-muted)] font-medium">Abertas / Em Análise</p>
+          <p className="text-xs text-[var(--text-muted)] font-medium">Abertas</p>
           <p className="text-xl sm:text-2xl font-bold text-blue-400 mt-1">{stats?.abertas || 0}</p>
         </div>
         <div className="arka-card p-4 border-l-4 border-l-purple-500">
           <p className="text-xs text-[var(--text-muted)] font-medium">Em Execução</p>
           <p className="text-xl sm:text-2xl font-bold text-purple-400 mt-1">{stats?.emExecucao || 0}</p>
         </div>
-        <div className="arka-card p-4 border-l-4 border-l-amber-500">
-          <p className="text-xs text-[var(--text-muted)] font-medium">Aguardando Peça</p>
-          <p className="text-xl sm:text-2xl font-bold text-amber-400 mt-1">{stats?.aguardandoPeca || 0}</p>
-        </div>
         <div className="arka-card p-4 border-l-4 border-l-emerald-500">
-          <p className="text-xs text-[var(--text-muted)] font-medium">Concluídas / Entregues</p>
-          <p className="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">{stats?.concluidas || 0}</p>
+          <p className="text-xs text-[var(--text-muted)] font-medium">Encerradas</p>
+          <p className="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">{stats?.encerradas || 0}</p>
+        </div>
+        <div className="arka-card p-4 border-l-4 border-l-red-500">
+          <p className="text-xs text-[var(--text-muted)] font-medium">Canceladas</p>
+          <p className="text-xl sm:text-2xl font-bold text-red-400 mt-1">{stats?.canceladas || 0}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="tab-bar" role="tablist">
-        {(['Todas', 'Abertas', 'Em Execução', 'Concluídas', 'Canceladas'] as const).map((tab) => (
+        {(['Todas', 'Abertas', 'Em Execução', 'Encerradas', 'Canceladas'] as const).map((tab) => (
           <button
             key={tab}
             role="tab"
@@ -154,10 +154,11 @@ export const ServiceOrders: React.FC = () => {
                   <td className="font-mono text-xs text-blue-400 font-bold">{os.code}</td>
                   <td className="font-medium text-xs sm:text-sm">{os.customerName}</td>
                   <td>
-                    {/* Resumo em uma linha. O texto completo fica no title, e a
-                        OS inteira no botão de visualizar. */}
+                    {/* Resumo em até duas linhas, para caber bem mais texto que
+                        o corte antigo de uma linha só. O texto integral fica no
+                        title, e a OS completa no botão de visualizar. */}
                     <span
-                      className="block max-w-[260px] truncate text-xs text-[var(--text-muted)]"
+                      className="clamp-2 max-w-[340px] text-xs text-[var(--text-muted)]"
                       title={fullDescription(os)}
                     >
                       {summarize(os)}

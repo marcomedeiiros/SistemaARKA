@@ -1,6 +1,6 @@
 // Entity models for Sistemas Arka ERP System
 
-export type UserRole = 'admin' | 'seller' | 'technician' | 'financial';
+export type UserRole = 'admin' | 'technician' | 'financial';
 
 export interface User {
   id?: number;
@@ -139,16 +139,7 @@ export interface Sale {
   createdAt: string;
 }
 
-export type OSStatus =
-  | 'aberta'
-  | 'em_analise'
-  | 'aguardando_aprovacao'
-  | 'aprovada'
-  | 'em_execucao'
-  | 'aguardando_peca'
-  | 'concluida'
-  | 'cancelada'
-  | 'entregue';
+export type OSStatus = 'aberta' | 'em_execucao' | 'encerrada' | 'cancelada';
 
 export interface OSProduct {
   productId: number;

@@ -9,13 +9,15 @@ import { ProductForm } from './ProductForm';
 import { inventoryService } from '../../services/inventoryService';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Pencil, Trash2, Layers, AlertTriangle, Image } from 'lucide-react';
+import { ProductImport } from './ProductImport';
+import { Plus, Pencil, Trash2, Layers, AlertTriangle, Image, Upload } from 'lucide-react';
 
 export const Products: React.FC = () => {
   const products = useLiveQuery(() => db.products.toArray(), []) || [];
   const { showToast } = useToast();
   const { currentUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | undefined>();
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [stockType, setStockType] = useState<'entrada' | 'saida' | 'ajuste'>('entrada');
@@ -165,9 +167,14 @@ export const Products: React.FC = () => {
         title="Produtos"
         subtitle={`${products.length} produto(s) no catálogo`}
         action={
-          <button onClick={() => { setEditProduct(undefined); setShowForm(true); }} className="btn btn-primary">
-            <Plus size={16} /> Novo Produto
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowImport(true)} className="btn btn-secondary">
+              <Upload size={16} /> <span className="hidden sm:inline">Importar CSV</span><span className="sm:hidden">Importar</span>
+            </button>
+            <button onClick={() => { setEditProduct(undefined); setShowForm(true); }} className="btn btn-primary">
+              <Plus size={16} /> <span className="hidden sm:inline">Novo Produto</span><span className="sm:hidden">Novo</span>
+            </button>
+          </div>
         }
       />
 
@@ -232,6 +239,9 @@ export const Products: React.FC = () => {
       <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editProduct?.id ? 'Editar Produto' : 'Novo Produto'} maxWidth="2xl">
         <ProductForm product={editProduct} onClose={() => setShowForm(false)} onSave={() => setShowForm(false)} />
       </Modal>
+
+      {/* CSV Import Modal */}
+      {showImport && <ProductImport onClose={() => setShowImport(false)} />}
 
       {/* Stock Movement Modal */}
       {stockProduct && (

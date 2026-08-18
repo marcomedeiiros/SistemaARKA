@@ -44,6 +44,62 @@ function migrate(db: DatabaseSync): void {
       db.exec(indexSql);
     }
   }
+
+  migrateLegacyValues(db);
+}
+
+/**
+ * Reescreve valores de enum que saíram do domínio depois de mudanças de regra
+ * de negócio. Sem isso, registros antigos continuariam com status/perfis que a
+ * interface não sabe mais renderizar (cairiam no badge cinza de fallback).
+ *
+ * Idempotente: os UPDATEs só afetam linhas que ainda tenham o valor legado.
+ *
+ * 1. O perfil "seller" (Vendedor) foi removido; quem vendia agora é "technician".
+ * 2. Os 9 status de OS foram reduzidos a aberta / em_execucao / encerrada /
+ *    cancelada. Triagem e aprovação voltam para "aberta", espera de peça
+ *    continua "em_execucao", e concluída/entregue viram "encerrada".
+ */
+function migrateLegacyValues(db: DatabaseSync): void {
+  // Os nomes físicos saem do próprio descritor (ex.: "serviceOrders" grava em
+  // "service_orders"), então renomear uma tabela no schema não quebra isto.
+  const physicalTable = (name: string): string => {
+    const definition = tables.find((candidate) => candidate.name === name);
+    if (!definition) throw new Error(`Descritor de tabela "${name}" não encontrado.`);
+    return definition.table;
+  };
+
+  const remaps: { entity: string; column: string; from: string[]; to: string }[] = [
+    { entity: 'users', column: 'role', from: ['seller'], to: 'technician' },
+    {
+      entity: 'serviceOrders',
+      column: 'status',
+      from: ['em_analise', 'aguardando_aprovacao', 'aprovada'],
+      to: 'aberta'
+    },
+    { entity: 'serviceOrders', column: 'status', from: ['aguardando_peca'], to: 'em_execucao' },
+    { entity: 'serviceOrders', column: 'status', from: ['concluida', 'entregue'], to: 'encerrada' }
+  ];
+
+  for (const remap of remaps) {
+    const table = physicalTable(remap.entity);
+    const placeholders = remap.from.map(() => '?').join(', ');
+
+    const result = db
+      .prepare(
+        `UPDATE "${table}" SET "${remap.column}" = ? WHERE "${remap.column}" IN (${placeholders})`
+      )
+      .run(remap.to, ...remap.from);
+
+    const changed = Number(result.changes ?? 0);
+
+    if (changed > 0) {
+      console.log(
+        `[arka-api] migração: ${changed} registro(s) em "${table}.${remap.column}" ` +
+          `movidos de ${remap.from.join('/')} para "${remap.to}".`
+      );
+    }
+  }
 }
 
 /**
