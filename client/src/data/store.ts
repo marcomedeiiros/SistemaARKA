@@ -156,6 +156,17 @@ class DataStore {
     this.notify();
   }
 
+  /**
+   * Descarta o retrato em memória (usado no logout). Zera o estado de carga
+   * para que a próxima sessão busque os dados do zero, já com o novo token.
+   */
+  reset(): void {
+    this.snapshot = emptySnapshot();
+    this.loaded = false;
+    this.initial = null;
+    this.notify();
+  }
+
   rows<K extends TableName>(name: K): Snapshot[K] {
     return this.snapshot[name];
   }

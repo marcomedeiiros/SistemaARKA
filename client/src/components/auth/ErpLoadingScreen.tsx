@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ARKA_LOGO_URL } from '../../lib/brand';
-import { ShieldCheck, Cpu, Database, Activity } from 'lucide-react';
+import { ShieldCheck, Cpu, Database, Activity, LogOut, Save, Lock, CheckCircle2 } from 'lucide-react';
 import { User } from '../../types';
 
 interface ErpLoadingScreenProps {
@@ -8,23 +8,36 @@ interface ErpLoadingScreenProps {
   onFinish?: () => void;
   message?: string;
   duration?: number;
+  /** 'login' (padrão): tela de entrada. 'logout': tela de saída da conta. */
+  variant?: 'login' | 'logout';
 }
+
+const LOGIN_STEPS = [
+  { text: 'Autenticando credenciais e acessos...', icon: ShieldCheck },
+  { text: 'Carregando módulos de estoque, vendas e serviços...', icon: Cpu },
+  { text: 'Sincronizando banco de dados em tempo real...', icon: Database },
+  { text: 'Acessando painel executivo...', icon: Activity }
+];
+
+const LOGOUT_STEPS = [
+  { text: 'Encerrando sua sessão com segurança...', icon: LogOut },
+  { text: 'Salvando as últimas alterações...', icon: Save },
+  { text: 'Limpando os dados desta sessão...', icon: Lock },
+  { text: 'Você deslogou do sistema de gestão de estoque. Até logo!', icon: CheckCircle2 }
+];
 
 export const ErpLoadingScreen: React.FC<ErpLoadingScreenProps> = ({
   user,
   onFinish,
   message,
-  duration = 1800
+  duration = 1800,
+  variant = 'login'
 }) => {
   const [progress, setProgress] = useState(10);
   const [stepIndex, setStepIndex] = useState(0);
 
-  const steps = [
-    { text: 'Autenticando credenciais e acessos...', icon: ShieldCheck },
-    { text: 'Carregando módulos de estoque, vendas e serviços...', icon: Cpu },
-    { text: 'Sincronizando banco de dados em tempo real...', icon: Database },
-    { text: 'Acessando painel executivo...', icon: Activity }
-  ];
+  const isLogout = variant === 'logout';
+  const steps = isLogout ? LOGOUT_STEPS : LOGIN_STEPS;
 
   useEffect(() => {
     const startTime = Date.now();
@@ -73,7 +86,13 @@ export const ErpLoadingScreen: React.FC<ErpLoadingScreenProps> = ({
 
           <div className="erp-loading-text">
             <h2 className="erp-loading-title">
-              {user?.name ? `Olá, ${user.name.split(' ')[0]}!` : 'Acessando Sistemas Arka ERP'}
+              {isLogout
+                ? user?.name
+                  ? `Até logo, ${user.name.split(' ')[0]}!`
+                  : 'Encerrando sua sessão'
+                : user?.name
+                  ? `Olá, ${user.name.split(' ')[0]}!`
+                  : 'Acessando Sistemas Arka ERP'}
             </h2>
             <p className="erp-loading-subtitle">
               {message || steps[stepIndex]?.text}
@@ -99,7 +118,8 @@ export const ErpLoadingScreen: React.FC<ErpLoadingScreenProps> = ({
         <div className="erp-loading-footer">
           <span className="erp-loading-pct">{progress}%</span>
           <span className="erp-loading-badge">
-            <span className="erp-loading-dot" /> Sistema Online · ERP Seguro
+            <span className="erp-loading-dot" />
+            {isLogout ? 'Encerrando sessão com segurança' : 'Sistema Online · ERP Seguro'}
           </span>
         </div>
       </div>

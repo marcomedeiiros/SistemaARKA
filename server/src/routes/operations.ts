@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { transaction } from '../database/connection.js';
+import { requireAdmin, requireRole } from '../http/auth.js';
 import { ValidationError } from '../http/errors.js';
 import { parseId, requireObject } from '../http/params.js';
 import { applyStockChange } from '../services/inventory.js';
@@ -39,37 +40,37 @@ const OS_STATUSES: OSStatus[] = ['aberta', 'em_execucao', 'encerrada', 'cancelad
 
 /* ─────────────── Vendas ─────────────── */
 
-operationsRouter.post('/sales', (req, res) => {
+operationsRouter.post('/sales', requireRole('technician'), (req, res) => {
   const body = requireObject(req.body);
   const sale = createSale(body as never, String(body.sellerName ?? 'Vendedor'));
   res.status(201).json(sale);
 });
 
-operationsRouter.post('/sales/:id/cancel', (req, res) => {
+operationsRouter.post('/sales/:id/cancel', requireRole('technician'), (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const sale = cancelSale(parseId(req.params.id), String(body.userName ?? 'Sistema'));
+  const sale = cancelSale(parseId(String(req.params.id)), String(body.userName ?? 'Sistema'));
   res.json(sale);
 });
 
 /* ─────────── Ordens de serviço ─────────── */
 
-operationsRouter.post('/service-orders', (req, res) => {
+operationsRouter.post('/service-orders', requireRole('technician'), (req, res) => {
   const body = requireObject(req.body);
   const os = createServiceOrder(body as never, String(body.userName ?? 'Técnico'));
   res.status(201).json(os);
 });
 
-operationsRouter.patch('/service-orders/:id', (req, res) => {
+operationsRouter.patch('/service-orders/:id', requireRole('technician'), (req, res) => {
   const body = requireObject(req.body);
   const os = updateServiceOrder(
-    parseId(req.params.id),
+    parseId(String(req.params.id)),
     body as never,
     String(body.userName ?? 'Técnico')
   );
   res.json(os);
 });
 
-operationsRouter.post('/service-orders/:id/status', (req, res) => {
+operationsRouter.post('/service-orders/:id/status', requireRole('technician'), (req, res) => {
   const body = requireObject(req.body);
   const status = String(body.status ?? '') as OSStatus;
 
@@ -77,12 +78,12 @@ operationsRouter.post('/service-orders/:id/status', (req, res) => {
     throw new ValidationError(`Status de OS inválido: "${String(body.status)}".`);
   }
 
-  res.json(changeStatus(parseId(req.params.id), status, String(body.userName ?? 'Técnico')));
+  res.json(changeStatus(parseId(String(req.params.id)), status, String(body.userName ?? 'Técnico')));
 });
 
 /* ─────────────── Estoque ─────────────── */
 
-operationsRouter.post('/stock-movements', (req, res) => {
+operationsRouter.post('/stock-movements', requireAdmin, (req, res) => {
   const body = requireObject(req.body);
   const type = String(body.type ?? '') as StockMovementType;
 
@@ -132,22 +133,22 @@ function readPayment(body: Record<string, unknown>) {
   };
 }
 
-operationsRouter.post('/receivables', (req, res) => {
+operationsRouter.post('/receivables', requireRole('financial'), (req, res) => {
   res.status(201).json(createManualReceivable(requireObject(req.body) as never));
 });
 
-operationsRouter.post('/receivables/:id/receive', (req, res) => {
+operationsRouter.post('/receivables/:id/receive', requireRole('financial'), (req, res) => {
   const payment = readPayment(requireObject(req.body));
-  res.json(transaction(() => receivePayment(parseId(req.params.id), payment)));
+  res.json(transaction(() => receivePayment(parseId(String(req.params.id)), payment)));
 });
 
-operationsRouter.post('/payables', (req, res) => {
+operationsRouter.post('/payables', requireRole('financial'), (req, res) => {
   res.status(201).json(createManualPayable(requireObject(req.body) as never));
 });
 
-operationsRouter.post('/payables/:id/pay', (req, res) => {
+operationsRouter.post('/payables/:id/pay', requireRole('financial'), (req, res) => {
   const payment = readPayment(requireObject(req.body));
-  res.json(transaction(() => payAccount(parseId(req.params.id), payment)));
+  res.json(transaction(() => payAccount(parseId(String(req.params.id)), payment)));
 });
 
 /* ─────────── Códigos sequenciais ─────────── */

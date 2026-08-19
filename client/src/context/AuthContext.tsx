@@ -1,27 +1,25 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { User, UserRole } from '../types';
+import { User } from '../types';
 import { db } from '../db/db';
+import { store } from '../data/store';
 import { useLiveQuery } from '../data/useLiveQuery';
-import { USER_AVATAR_URL } from '../lib/brand';
-
-/** Chave da sessão salva no navegador (mantém o login após recarregar). */
-const SESSION_KEY = 'arka_session_user_id';
-
-interface RegisterInput {
-  name: string;
-  email: string;
-  password: string;
-}
+import { authApi, RegisterInput } from '../lib/auth';
+import { session } from '../lib/session';
 
 interface AuthContextType {
   currentUser: User | null;
-  setCurrentUser: (user: User) => void;
   allUsers: User[];
+  /** `false` enquanto a sessão salva ainda está sendo validada no servidor. */
+  authReady: boolean;
   hasPermission: (module: string) => boolean;
-  switchRole: (role: UserRole) => void;
   login: (email: string, password: string) => Promise<User>;
   register: (input: RegisterInput) => Promise<User>;
+  /** Inicia a saída: liga a tela de transição (a sessão só encerra no fim dela). */
   logout: () => void;
+  /** Efetiva a saída ao fim da transição (encerra a sessão e limpa tudo). */
+  finishLogout: () => void;
+  /** `true` enquanto a tela de transição de saída está sendo exibida. */
+  isLeaving: boolean;
   isEnteringDashboard: boolean;
   setIsEnteringDashboard: (val: boolean) => void;
 }
@@ -30,130 +28,107 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [isEnteringDashboard, setIsEnteringDashboard] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
-  // Consulta reativa: se a lista mudar (cadastro, exclusão, restauração de
-  // backup), a autenticação acompanha.
-  const usersQuery = useLiveQuery(() => db.users.toArray(), []);
+  // Lista de usuários (para a tela de Usuários e o cabeçalho). Só é preenchida
+  // depois do login, quando o snapshot é carregado do servidor e nunca traz
+  // o campo de senha, que o servidor remove antes de enviar.
+  const usersQuery = useLiveQuery(
+    () => (currentUser ? db.users.toArray() : Promise.resolve([])),
+    [currentUser]
+  );
   const allUsers = useMemo(() => usersQuery ?? [], [usersQuery]);
 
-  /** Define o usuário atual e sincroniza a sessão salva no navegador. */
-  const persist = useCallback((user: User | null) => {
-    if (user?.id) {
-      window.localStorage.setItem(SESSION_KEY, String(user.id));
-    } else {
-      window.localStorage.removeItem(SESSION_KEY);
+  // Restaura a sessão a partir do token salvo, validando-o no servidor.
+  useEffect(() => {
+    let active = true;
+    const token = session.get();
+
+    if (!token) {
+      setAuthReady(true);
+      return;
     }
-    setUser(user);
+
+    authApi
+      .me()
+      .then((user) => {
+        if (active) setUser(user);
+      })
+      .catch(() => {
+        if (active) {
+          session.clear();
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Restaura a sessão salva no boot (sem login automático) e realinha se o
-  // usuário atual sair da lista (ex.: exclusão ou restauração de backup).
+  // Sessão derrubada pelo servidor (token expirado/invalidado) em qualquer
+  // requisição: força o logout local.
   useEffect(() => {
-    if (allUsers.length === 0) return;
+    const onExpired = () => {
+      // Expiração é abrupta (sem tela de transição): volta direto ao login.
+      setIsLeaving(false);
+      setUser(null);
+      store.reset();
+    };
+    window.addEventListener('arka-auth-expired', onExpired);
+    return () => window.removeEventListener('arka-auth-expired', onExpired);
+  }, []);
 
-    setUser((current) => {
-      if (current) {
-        return allUsers.find((u) => u.id === current.id) ?? null;
-      }
-      const savedId = Number(window.localStorage.getItem(SESSION_KEY));
-      if (savedId) {
-        return allUsers.find((u) => u.id === savedId) ?? null;
-      }
-      return null;
-    });
-  }, [allUsers]);
+  /** Entra com e-mail e senha. A validação acontece no servidor. */
+  const login = useCallback(async (email: string, password: string): Promise<User> => {
+    const user = await authApi.login(email, password);
+    // Garante que os dados desta sessão sejam buscados do zero com o novo token.
+    store.reset();
+    setIsEnteringDashboard(true);
+    setUser(user);
+    return user;
+  }, []);
 
-  const setCurrentUser = useCallback((user: User) => persist(user), [persist]);
+  /** Cria uma conta nova. NÃO autentica automaticamente (deve passar pelo login). */
+  const register = useCallback(async (input: RegisterInput): Promise<User> => {
+    return authApi.register(input);
+  }, []);
 
-  /** Entra com e-mail e senha. Contas antigas sem senha a definem no 1º acesso. */
-  const login = useCallback(
-    async (email: string, password: string): Promise<User> => {
-      const normalized = email.trim().toLowerCase();
-      const users = await db.users.toArray();
-      const user = users.find((u) => u.email.trim().toLowerCase() === normalized);
+  /**
+   * Inicia a saída: liga a tela de transição, mas mantém o usuário logado até
+   * ela terminar (espelha a tela de entrada, agora ao contrário).
+   */
+  const logout = useCallback(() => {
+    setIsLeaving(true);
+  }, []);
 
-      if (!user) throw new Error('E-mail não encontrado. Verifique os dados ou crie uma conta.');
-      if (user.active === false) throw new Error('Esta conta está inativa. Fale com o administrador.');
+  /** Efetiva a saída ao fim da transição: encerra a sessão e limpa tudo. */
+  const finishLogout = useCallback(() => {
+    void authApi.logout();
+    store.reset();
+    setUser(null);
+    setIsLeaving(false);
+  }, []);
 
-      // Contas de demonstração ainda não têm senha: o primeiro acesso a define.
-      if (!user.password) {
-        await db.users.update(user.id!, { password });
-        const claimed = { ...user, password };
-        setIsEnteringDashboard(true);
-        persist(claimed);
-        return claimed;
-      }
-
-      if (user.password !== password) throw new Error('Senha incorreta.');
-
-      setIsEnteringDashboard(true);
-      persist(user);
-      return user;
-    },
-    [persist]
-  );
-
-  /** Cria uma conta nova. O usuário NÃO é autenticado automaticamente (deve passar pelo login). */
-  const register = useCallback(
-    async ({ name, email, password }: RegisterInput): Promise<User> => {
-      const cleanName = name.trim();
-      const cleanEmail = email.trim();
-      const normalized = cleanEmail.toLowerCase();
-
-      const users = await db.users.toArray();
-      if (users.some((u) => u.email.trim().toLowerCase() === normalized)) {
-        throw new Error('Já existe uma conta com esse e-mail.');
-      }
-
-      const now = new Date().toISOString();
-      const base = {
-        name: cleanName,
-        email: cleanEmail,
-        password,
-        role: (users.length === 0 ? 'admin' : 'technician') as UserRole,
-        active: true,
-        avatarUrl: USER_AVATAR_URL,
-        createdAt: now
-      };
-      const id = await db.users.add(base);
-      const created: User = { ...base, id };
-      // Não chama persist(created) para exigir a etapa de login
-      return created;
-    },
-    []
-  );
-
-  const logout = useCallback(() => persist(null), [persist]);
-
-  const switchRole = (role: UserRole) => {
-    const found = allUsers.find((u) => u.role === role);
-    if (found) {
-      persist(found);
-    } else if (currentUser) {
-      persist({
-        ...currentUser,
-        role,
-        name: `Usuário (${role.toUpperCase()})`
-      });
-    }
-  };
-
+  // Gate apenas de interface: esconde botões/menus. A barreira real é o
+  // servidor, que revalida cada operação pelo perfil do token.
   const hasPermission = (module: string): boolean => {
     if (!currentUser) return false;
     const role = currentUser.role;
 
-    // Administrador tem acesso total
     if (role === 'admin') return true;
 
-    // Técnico: OS, vendas, clientes, serviços, estoque (view), dashboard
     if (role === 'technician') {
       return ['dashboard', 'customers', 'os', 'sales', 'services', 'products', 'reports'].includes(
         module
       );
     }
 
-    // Financeiro: contas a pagar, contas a receber, fluxo de caixa, clientes, relatórios, dashboard
     if (role === 'financial') {
       return ['dashboard', 'customers', 'financial', 'reports'].includes(module);
     }
@@ -165,13 +140,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         currentUser,
-        setCurrentUser,
         allUsers,
+        authReady,
         hasPermission,
-        switchRole,
         login,
         register,
         logout,
+        finishLogout,
+        isLeaving,
         isEnteringDashboard,
         setIsEnteringDashboard
       }}

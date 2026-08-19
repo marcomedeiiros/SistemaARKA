@@ -22,8 +22,8 @@ function bootstrap() {
     console.log(`[arka-api] ouvindo em http://localhost:${config.port}`);
     console.log(`[arka-api] banco de dados: ${config.databaseFile}`);
     console.log(`[arka-api] origens liberadas: ${config.corsOrigins.join(', ')}`);
-    console.warn(
-      '[arka-api] atenção: a API não tem autenticação. Mantenha-a acessível apenas na rede local.'
+    console.log(
+      '[arka-api] autenticação por token ativa: todas as rotas (exceto /api/health e /api/auth) exigem sessão válida.'
     );
   });
 

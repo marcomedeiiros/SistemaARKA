@@ -5,7 +5,12 @@
  * (ver vite.config.ts). Em produção, defina VITE_API_URL apontando para a API.
  */
 
-const BASE_URL = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '');
+import { session } from './session';
+
+// O `import.meta.env &&` mantém a expressão que o Vite substitui no build e, ao
+// mesmo tempo, evita erro fora do Vite (ex.: nos testes com o runner do Node,
+// onde `import.meta.env` é indefinido).
+const BASE_URL = ((import.meta.env && import.meta.env.VITE_API_URL) || '/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(
@@ -27,11 +32,16 @@ interface ErrorPayload {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
 
+  // Anexa o token de sessão, quando houver. A autorização é sempre decidida no
+  // servidor a partir deste token o cliente nunca envia perfil/identidade.
+  const token = session.get();
+
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init?.headers ?? {})
       }
     });
@@ -40,6 +50,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       'Não foi possível falar com o servidor. Verifique se a API está em execução.',
       0
     );
+  }
+
+  // Token rejeitado (expirado/invalidado): limpa a sessão local e avisa o app,
+  // que leva o usuário de volta ao login. Só reage quando um token foi enviado,
+  // para não interferir num login com credenciais erradas.
+  if (response.status === 401 && token) {
+    session.clear();
+    window.dispatchEvent(new Event('arka-auth-expired'));
   }
 
   if (response.status === 204) {

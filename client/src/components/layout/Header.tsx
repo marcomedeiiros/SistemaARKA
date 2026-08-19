@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Bell, Sun, Moon, ChevronDown, Menu, Search,
-  AlertTriangle, ClipboardList, DollarSign, Check, LogOut
+  AlertTriangle, ClipboardList, DollarSign, LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
   onNavigate
 }) => {
-  const { currentUser, allUsers, setCurrentUser, logout } = useAuth();
+  const { currentUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isMobile = useIsMobile();
 
@@ -251,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => toggleMenu('user')}
               className="flex items-center gap-2 p-1 sm:pl-1.5 sm:pr-2.5 sm:py-1 rounded-xl hover:bg-[var(--bg-subtle)] transition"
-              aria-label="Alternar usuário"
+              aria-label="Conta do usuário"
               aria-expanded={openMenu === 'user'}
               aria-haspopup="menu"
             >
@@ -278,46 +278,29 @@ export const Header: React.FC<HeaderProps> = ({
 
             {openMenu === 'user' && (
               <div className="dropdown-panel w-60" role="menu">
-                <div className="px-3.5 py-2.5 border-b border-[var(--border-color)]">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                    Alternar usuário
-                  </p>
+                <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-[var(--border-color)]">
+                  <UserAvatar
+                    name={currentUser?.name}
+                    avatarUrl={currentUser?.avatarUrl}
+                    color={roleColors[currentUser?.role || 'admin']}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-[var(--text-main)] leading-tight truncate">
+                      {currentUser?.name}
+                    </p>
+                    <p className="text-[10px] text-[var(--text-muted)] leading-tight truncate">
+                      {currentUser?.email}
+                    </p>
+                    <p
+                      className="text-[10px] font-medium leading-tight mt-0.5"
+                      style={{ color: roleColors[currentUser?.role || 'admin'] }}
+                    >
+                      {roleLabels[currentUser?.role || 'admin']}
+                    </p>
+                  </div>
                 </div>
 
-                {allUsers.map((user) => {
-                  const isCurrent = currentUser?.id === user.id;
-
-                  return (
-                    <button
-                      key={user.id}
-                      onClick={() => {
-                        setCurrentUser(user);
-                        closeMenus();
-                      }}
-                      role="menuitem"
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-[var(--bg-subtle)] transition"
-                    >
-                      <UserAvatar
-                        name={user.name}
-                        avatarUrl={user.avatarUrl}
-                        color={roleColors[user.role]}
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-[var(--text-main)] leading-tight truncate">
-                          {user.name}
-                        </p>
-                        <p className="text-[10px]" style={{ color: roleColors[user.role] }}>
-                          {roleLabels[user.role]}
-                        </p>
-                      </div>
-
-                      {isCurrent && <Check size={14} className="text-emerald-500 shrink-0" />}
-                    </button>
-                  );
-                })}
-
-                <div className="border-t border-[var(--border-color)] mt-1 pt-1">
+                <div className="mt-1 pt-1">
                   <button
                     onClick={() => {
                       closeMenus();

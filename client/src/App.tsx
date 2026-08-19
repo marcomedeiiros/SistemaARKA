@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import './styles/index.css';
@@ -25,43 +25,83 @@ import { Settings } from './components/settings/Settings';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { ErpLoadingScreen } from './components/auth/ErpLoadingScreen';
 import { useAuth } from './context/AuthContext';
-import { initializeData } from './data/store';
+import { store } from './data/store';
 import { AUTH_PATHS, MODULE_PATHS, moduleFromPath } from './routes';
 
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, isEnteringDashboard, setIsEnteringDashboard } = useAuth();
+  const { currentUser, authReady, isEnteringDashboard, setIsEnteringDashboard, isLeaving, finishLogout } =
+    useAuth();
 
   // O módulo ativo agora vem da URL; a navegação apenas troca a rota.
   const activeModule = moduleFromPath(location.pathname);
   const setActiveModule = (module: ActiveModule) => navigate(MODULE_PATHS[module]);
 
-  const [bootState, setBootState] = useState<'loading' | 'ready' | 'error'>('loading');
+  // Os dados do sistema só são buscados depois de autenticado a rota de
+  // snapshot exige token. Antes do login, apenas as telas públicas aparecem.
+  const [bootState, setBootState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [bootError, setBootError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const connect = () => {
+  const connect = useCallback(() => {
     setBootState('loading');
-    initializeData()
+    store
+      .refresh()
       .then(() => setBootState('ready'))
       .catch((error: unknown) => {
         console.error('Erro ao carregar os dados do servidor:', error);
         setBootError(error instanceof Error ? error.message : String(error));
         setBootState('error');
       });
-  };
+  }, []);
+
+  // Carrega (ou recarrega) os dados sempre que há um usuário autenticado.
+  useEffect(() => {
+    if (currentUser) {
+      connect();
+    } else {
+      setBootState('idle');
+    }
+  }, [currentUser, connect]);
 
   useEffect(() => {
-    connect();
-
     const handleCustomSearchOpen = () => setIsSearchOpen(true);
     window.addEventListener('open-command-palette', handleCustomSearchOpen);
     return () => window.removeEventListener('open-command-palette', handleCustomSearchOpen);
   }, []);
 
-  if (bootState === 'loading') {
+  // Enquanto a sessão salva é validada no servidor.
+  if (!authReady) {
+    return <ErpLoadingScreen message="Verificando sua sessão..." duration={800} />;
+  }
+
+  // Transição de saída da conta: mostra a tela (com timer) e só então encerra
+  // a sessão de fato, levando o usuário de volta ao login.
+  if (isLeaving) {
+    return (
+      <ErpLoadingScreen
+        variant="logout"
+        user={currentUser}
+        onFinish={finishLogout}
+        duration={2200}
+      />
+    );
+  }
+
+  // Dados carregados, mas sem sessão: rotas públicas de login/cadastro.
+  if (!currentUser) {
+    return (
+      <Routes>
+        <Route path={AUTH_PATHS.login} element={<LoginScreen mode="login" />} />
+        <Route path={AUTH_PATHS.register} element={<LoginScreen mode="register" />} />
+        <Route path="*" element={<Navigate to={AUTH_PATHS.login} replace />} />
+      </Routes>
+    );
+  }
+
+  if (bootState === 'loading' || bootState === 'idle') {
     return <ErpLoadingScreen message="Conectando à base de dados do Sistemas Arka ERP..." duration={1200} />;
   }
 
@@ -86,17 +126,6 @@ function AppContent() {
           </button>
         </div>
       </div>
-    );
-  }
-
-  // Dados carregados, mas sem sessão: rotas públicas de login/cadastro.
-  if (!currentUser) {
-    return (
-      <Routes>
-        <Route path={AUTH_PATHS.login} element={<LoginScreen mode="login" />} />
-        <Route path={AUTH_PATHS.register} element={<LoginScreen mode="register" />} />
-        <Route path="*" element={<Navigate to={AUTH_PATHS.login} replace />} />
-      </Routes>
     );
   }
 

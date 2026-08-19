@@ -17,6 +17,20 @@ export class ValidationError extends AppError {
   }
 }
 
+export class UnauthorizedError extends AppError {
+  constructor(message = 'Autenticação necessária.') {
+    super(message, 401);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = 'Você não tem permissão para esta ação.') {
+    super(message, 403);
+    this.name = 'ForbiddenError';
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = 'Registro não encontrado.') {
     super(message, 404);
@@ -28,5 +42,12 @@ export class ConflictError extends AppError {
   constructor(message: string) {
     super(message, 409);
     this.name = 'ConflictError';
+  }
+}
+
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Muitas tentativas. Tente novamente mais tarde.') {
+    super(message, 429);
+    this.name = 'TooManyRequestsError';
   }
 }

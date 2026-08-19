@@ -5,8 +5,7 @@ import type { TableName } from '../types.js';
 const iso = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86_400_000).toISOString();
 const day = (offsetDays = 0) => iso(offsetDays).split('T')[0]!;
 
-/** Marca da Arka, servida pela raiz do cliente (client/public). */
-const ARKA_LOGO = '/arka-horizontal.webp';
+/** Avatar padrão dos usuários, servido pela raiz do cliente (client/public). */
 const USER_AVATAR = '/user.webp';
 
 /** Remove todos os registros de todas as coleções. */

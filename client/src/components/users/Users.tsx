@@ -14,7 +14,7 @@ const ROLES: { value: UserRole; label: string; color: string; description: strin
   { value: 'financial', label: 'Financeiro', color: '#a855f7', description: 'Acesso ao módulo financeiro' }
 ];
 
-const empty = { name: '', email: '', role: 'technician' as UserRole, active: true };
+const empty = { name: '', email: '', role: 'technician' as UserRole, active: true, password: '' };
 
 export const Users: React.FC = () => {
   const users = useLiveQuery(() => db.users.toArray(), []) || [];
@@ -25,7 +25,7 @@ export const Users: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const openNew = () => { setEditUser(undefined); setForm({ ...empty }); setFormBanner(null); setShowForm(true); };
-  const openEdit = (u: User) => { setEditUser(u); setForm({ name: u.name, email: u.email, role: u.role, active: u.active }); setFormBanner(null); setShowForm(true); };
+  const openEdit = (u: User) => { setEditUser(u); setForm({ name: u.name, email: u.email, role: u.role, active: u.active, password: '' }); setFormBanner(null); setShowForm(true); };
   const set = (field: string, value: any) => setForm((f) => ({ ...f, [field]: value }));
 
   const handleSave = async () => {
@@ -35,10 +35,16 @@ export const Users: React.FC = () => {
     }
     setLoading(true);
     try {
+      // A senha só é enviada quando preenchida. Em branco: mantém a atual (na
+      // edição) ou deixa o usuário defini-la no primeiro acesso (no cadastro).
+      // O hash é feito no servidor a senha nunca é guardada em texto puro.
+      const { password, ...rest } = form;
+      const payload = password.trim() ? { ...rest, password: password.trim() } : rest;
+
       if (editUser?.id) {
-        await db.users.put({ ...editUser, ...form });
+        await db.users.put({ ...editUser, ...payload });
       } else {
-        await db.users.add({ ...form, createdAt: new Date().toISOString() });
+        await db.users.add({ ...payload, createdAt: new Date().toISOString() });
       }
       setFormBanner({ type: 'success', message: 'Usuário salvo com sucesso!' });
       setTimeout(() => { setShowForm(false); setFormBanner(null); }, 700);
@@ -168,6 +174,17 @@ export const Users: React.FC = () => {
 
           <FormGroup label="E-mail *" required>
             <input type="email" className="arka-input" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="joao@empresa.com" />
+          </FormGroup>
+
+          <FormGroup label={editUser ? 'Senha (deixe em branco para manter a atual)' : 'Senha inicial (opcional)'}>
+            <input
+              type="password"
+              className="arka-input"
+              value={form.password}
+              onChange={(e) => set('password', e.target.value)}
+              placeholder={editUser ? 'Defina uma nova senha' : 'Se vazio, o usuário define no 1º acesso'}
+              autoComplete="new-password"
+            />
           </FormGroup>
 
           <FormGroup label="Perfil de Acesso *" required>
