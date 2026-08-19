@@ -10,7 +10,7 @@ import { inventoryService } from '../../services/inventoryService';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { ProductImport } from './ProductImport';
-import { Plus, Pencil, Trash2, Layers, AlertTriangle, Image, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, AlertTriangle, Image, Upload, KeyRound } from 'lucide-react';
 
 export const Products: React.FC = () => {
   const products = useLiveQuery(() => db.products.toArray(), []) || [];
@@ -25,11 +25,15 @@ export const Products: React.FC = () => {
   const [stockReason, setStockReason] = useState('');
   const [stockSaving, setStockSaving] = useState(false);
   const [stockAlert, setStockAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'low'>('all');
+  const [filterStatus, setFilterStatus] = useState<
+    'all' | 'licenses' | 'active' | 'inactive' | 'low'
+  >('all');
 
   const lowStockCount = products.filter((p) => p.active && p.currentStock <= p.minStock).length;
+  const licenseCount = products.filter((p) => p.requiresLicenseKey).length;
 
   const filteredProducts = products.filter((p) => {
+    if (filterStatus === 'licenses') return p.requiresLicenseKey;
     if (filterStatus === 'active') return p.active;
     if (filterStatus === 'inactive') return !p.active;
     if (filterStatus === 'low') return p.active && p.currentStock <= p.minStock;
@@ -116,7 +120,14 @@ export const Products: React.FC = () => {
             </div>
           )}
           <div className="min-w-0">
-            <p className="font-medium text-[var(--text-main)] truncate max-w-[200px]">{p.name}</p>
+            <p className="font-medium text-[var(--text-main)] truncate max-w-[200px] flex items-center gap-1.5">
+              {p.name}
+              {p.requiresLicenseKey && (
+                <span className="badge badge-blue shrink-0 inline-flex items-center gap-1">
+                  <KeyRound size={11} /> Licença
+                </span>
+              )}
+            </p>
             <p className="text-xs text-[var(--text-muted)]">{p.sku} {p.brand && `· ${p.brand}`}</p>
           </div>
         </div>
@@ -181,7 +192,8 @@ export const Products: React.FC = () => {
       {/* Filtros */}
       <div className="segmented">
         {([
-          { key: 'all', label: 'Todos' },
+          { key: 'all', label: `Todos (${products.length})` },
+          { key: 'licenses', label: `Licenças (${licenseCount})` },
           { key: 'active', label: 'Ativos' },
           { key: 'inactive', label: 'Inativos' },
           { key: 'low', label: `Estoque baixo (${lowStockCount})` }

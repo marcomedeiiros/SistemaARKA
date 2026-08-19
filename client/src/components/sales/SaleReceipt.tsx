@@ -124,7 +124,14 @@ export const SaleReceipt: React.FC<SaleReceiptProps> = ({ sale, onClose }) => {
             <tbody>
               {sale.items.map((item, index) => (
                 <tr key={`${item.productId}-${index}`}>
-                  <td>{item.productName}</td>
+                  <td>
+                    {item.productName}
+                    {item.licenseKeys && item.licenseKeys.length > 0 && (
+                      <span className="block mt-0.5 text-[0.68rem] text-[var(--text-muted)]">
+                        Chave(s): {item.licenseKeys.join(', ')}
+                      </span>
+                    )}
+                  </td>
                   <td className="font-mono text-[0.68rem]">{item.sku || '-'}</td>
                   <td className="text-center">
                     {item.quantity} {item.unit}

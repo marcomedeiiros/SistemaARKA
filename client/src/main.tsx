@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 
 // Poppins auto-hospedada (subconjunto latino), sem depender do Google Fonts:
 // a aplicação carrega a fonte mesmo offline e não expõe requisições a terceiros.
@@ -14,6 +15,8 @@ import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </StrictMode>,
 )

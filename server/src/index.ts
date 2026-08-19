@@ -1,7 +1,7 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { closeDatabase, getDatabase } from './database/connection.js';
-import { isDatabaseEmpty, seedDatabase } from './database/seed.js';
+import { ensureWindowsLicenses, isDatabaseEmpty, seedDatabase } from './database/seed.js';
 
 function bootstrap() {
   // Abre a conexão e roda as migrações antes de aceitar requisições.
@@ -11,6 +11,10 @@ function bootstrap() {
     console.log('[arka-api] banco vazio populando com os dados de demonstração...');
     seedDatabase();
   }
+
+  // Garante o catálogo de licenças de Windows mesmo em bancos já existentes,
+  // sem apagar dados. Idempotente: não faz nada se as licenças já existem.
+  ensureWindowsLicenses();
 
   const app = createApp();
 

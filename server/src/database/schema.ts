@@ -110,6 +110,9 @@ export const tables: TableDef[] = [
       barcode: { type: 'text', fallback: '' },
       imageUrl: { type: 'text' },
       active: { type: 'bool', notNull: true, fallback: true },
+      // Marca produtos que são licenças de software (ex.: Windows). Quando true,
+      // o PDV exige a chave/serial de cada unidade vendida.
+      requiresLicenseKey: { type: 'bool', fallback: false },
       createdAt: timestamps.createdAt,
       updatedAt: timestamps.updatedAt
     },

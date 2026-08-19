@@ -7,6 +7,7 @@ const day = (offsetDays = 0) => iso(offsetDays).split('T')[0]!;
 
 /** Marca da Arka, servida pela raiz do cliente (client/public). */
 const ARKA_LOGO = '/arka-horizontal.webp';
+const USER_AVATAR = '/user.webp';
 
 /** Remove todos os registros de todas as coleções. */
 export function clearAllTables(): void {
@@ -20,13 +21,102 @@ export function isDatabaseEmpty(): boolean {
   return repositories.users.count() === 0;
 }
 
+/** Categoria e produtos de licença de Windows revendidos pela empresa. */
+const LICENSE_CATEGORY_NAME = 'Licenças de Software';
+
+const WINDOWS_LICENSE_PRODUCTS = [
+  {
+    sku: 'LIC-WIN11-HOME',
+    name: 'Licença Windows 11 Home (chave de ativação)',
+    description: 'Licença digital original Windows 11 Home, ativação vitalícia (1 PC).',
+    brand: 'Microsoft',
+    unit: 'UN',
+    costPrice: 120,
+    salePrice: 249,
+    currentStock: 50,
+    minStock: 5,
+    barcode: '789890555001'
+  },
+  {
+    sku: 'LIC-WIN11-PRO',
+    name: 'Licença Windows 11 Pro (chave de ativação)',
+    description: 'Licença digital original Windows 11 Pro, ativação vitalícia (1 PC).',
+    brand: 'Microsoft',
+    unit: 'UN',
+    costPrice: 190,
+    salePrice: 379,
+    currentStock: 50,
+    minStock: 5,
+    barcode: '789890555002'
+  },
+  {
+    sku: 'LIC-WIN10-PRO',
+    name: 'Licença Windows 10 Pro (chave de ativação)',
+    description: 'Licença digital original Windows 10 Pro, ativação vitalícia (1 PC).',
+    brand: 'Microsoft',
+    unit: 'UN',
+    costPrice: 160,
+    salePrice: 329,
+    currentStock: 40,
+    minStock: 5,
+    barcode: '789890555003'
+  }
+];
+
+/**
+ * Garante o catálogo de licenças de Windows sem apagar nenhum dado.
+ *
+ * Ao contrário do seed completo (que só roda em banco vazio), esta rotina é
+ * idempotente e roda a cada boot: cria a categoria "Licenças de Software" e os
+ * produtos de licença apenas se ainda não existirem (checagem por SKU). Assim,
+ * bancos já populados passam a oferecer a venda de licença de Windows.
+ */
+export function ensureWindowsLicenses(): void {
+  transaction(() => {
+    const now = iso();
+
+    let category = repositories.categories.findWhere('name', LICENSE_CATEGORY_NAME)[0];
+    if (!category) {
+      category = repositories.categories.insert({
+        name: LICENSE_CATEGORY_NAME,
+        description: 'Licenças de Windows e demais softwares (venda com chave)'
+      });
+    }
+
+    // Reaproveita o primeiro fornecedor como referência comercial, se houver.
+    const supplier = repositories.suppliers.findAll()[0];
+
+    let created = 0;
+    for (const product of WINDOWS_LICENSE_PRODUCTS) {
+      if (repositories.products.findWhere('sku', product.sku).length > 0) continue;
+
+      repositories.products.insert({
+        ...product,
+        categoryId: category.id!,
+        categoryName: LICENSE_CATEGORY_NAME,
+        supplierId: supplier?.id,
+        supplierName: supplier?.name,
+        requiresLicenseKey: true,
+        active: true,
+        createdAt: now,
+        updatedAt: now
+      });
+      created += 1;
+    }
+
+    if (created > 0) {
+      console.log(`[arka-api] catálogo: ${created} licença(s) de Windows adicionada(s).`);
+    }
+  });
+}
+
 /** Quantidade esperada de registros por coleção após o seed. */
 const EXPECTED_COUNTS: Partial<Record<TableName, number>> = {
   users: 4,
   companySettings: 1,
   suppliers: 2,
-  categories: 4,
-  products: 6,
+  categories: 5,
+  products: 9,
   services: 4,
   customers: 3,
   serviceOrders: 2,
@@ -72,15 +162,12 @@ export function seedDatabase(): void {
 
     // 1. Usuários
     repositories.users.insertMany([
-      // As fotos de perfil usam a marca da Arka, servida por client/public.
-      // Antes apontavam para o Unsplash, o que deixava o sistema dependente de
-      // internet só para desenhar o avatar.
       {
         name: 'Carlos Oliveira (Admin)',
         email: 'admin@arka.com.br',
         role: 'admin',
         active: true,
-        avatarUrl: ARKA_LOGO,
+        avatarUrl: USER_AVATAR,
         createdAt: now
       },
       {
@@ -88,7 +175,7 @@ export function seedDatabase(): void {
         email: 'vendas@arka.com.br',
         role: 'technician',
         active: true,
-        avatarUrl: ARKA_LOGO,
+        avatarUrl: USER_AVATAR,
         createdAt: now
       },
       {
@@ -96,7 +183,7 @@ export function seedDatabase(): void {
         email: 'tecnico@arka.com.br',
         role: 'technician',
         active: true,
-        avatarUrl: ARKA_LOGO,
+        avatarUrl: USER_AVATAR,
         createdAt: now
       },
       {
@@ -104,7 +191,7 @@ export function seedDatabase(): void {
         email: 'financeiro@arka.com.br',
         role: 'financial',
         active: true,
-        avatarUrl: ARKA_LOGO,
+        avatarUrl: USER_AVATAR,
         createdAt: now
       }
     ]);
@@ -158,7 +245,8 @@ export function seedDatabase(): void {
       },
       { name: 'Redes & Conectividade', description: 'Roteadores, switches e cabos de rede' },
       { name: 'Segurança Eletrônica', description: 'Câmeras, DVRs e sensores' },
-      { name: 'Insumos & Acessórios', description: 'Cabos, conectores, colas e ferramentas' }
+      { name: 'Insumos & Acessórios', description: 'Cabos, conectores, colas e ferramentas' },
+      { name: 'Licenças de Software', description: 'Licenças de Windows e demais softwares (venda com chave)' }
     ]);
 
     // 5. Produtos
@@ -285,6 +373,69 @@ export function seedDatabase(): void {
         barcode: '789890123406',
         imageUrl:
           'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=300&q=80',
+        active: true,
+        createdAt: now,
+        updatedAt: now
+      },
+      // Licenças de software: a empresa revende chaves de ativação do Windows.
+      // O estoque representa a quantidade de chaves disponíveis e cada venda
+      // exige a chave/serial da unidade (requiresLicenseKey).
+      {
+        sku: 'LIC-WIN11-HOME',
+        name: 'Licença Windows 11 Home (chave de ativação)',
+        description: 'Licença digital original Windows 11 Home, ativação vitalícia (1 PC).',
+        categoryId: categories[4]!.id!,
+        categoryName: 'Licenças de Software',
+        brand: 'Microsoft',
+        unit: 'UN',
+        costPrice: 120,
+        salePrice: 249,
+        currentStock: 50,
+        minStock: 5,
+        supplierId: suppliers[0]!.id!,
+        supplierName: 'TechComponentes Distribuidora S.A.',
+        barcode: '789890555001',
+        requiresLicenseKey: true,
+        active: true,
+        createdAt: now,
+        updatedAt: now
+      },
+      {
+        sku: 'LIC-WIN11-PRO',
+        name: 'Licença Windows 11 Pro (chave de ativação)',
+        description: 'Licença digital original Windows 11 Pro, ativação vitalícia (1 PC).',
+        categoryId: categories[4]!.id!,
+        categoryName: 'Licenças de Software',
+        brand: 'Microsoft',
+        unit: 'UN',
+        costPrice: 190,
+        salePrice: 379,
+        currentStock: 50,
+        minStock: 5,
+        supplierId: suppliers[0]!.id!,
+        supplierName: 'TechComponentes Distribuidora S.A.',
+        barcode: '789890555002',
+        requiresLicenseKey: true,
+        active: true,
+        createdAt: now,
+        updatedAt: now
+      },
+      {
+        sku: 'LIC-WIN10-PRO',
+        name: 'Licença Windows 10 Pro (chave de ativação)',
+        description: 'Licença digital original Windows 10 Pro, ativação vitalícia (1 PC).',
+        categoryId: categories[4]!.id!,
+        categoryName: 'Licenças de Software',
+        brand: 'Microsoft',
+        unit: 'UN',
+        costPrice: 160,
+        salePrice: 329,
+        currentStock: 40,
+        minStock: 5,
+        supplierId: suppliers[0]!.id!,
+        supplierName: 'TechComponentes Distribuidora S.A.',
+        barcode: '789890555003',
+        requiresLicenseKey: true,
         active: true,
         createdAt: now,
         updatedAt: now

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 
-import { ARKA_LOGO_URL } from '../../lib/brand';
+import { USER_AVATAR_URL } from '../../lib/brand';
 
 interface UserAvatarProps {
   name?: string;
-  /** Foto própria do usuário. Sem ela, entra a marca da Arka. */
+  /** Foto própria do usuário. Sem ela, entra a foto padrão /user.webp. */
   avatarUrl?: string;
   /** Cor do anel e do fundo da inicial (normalmente a cor do perfil). */
   color?: string;
@@ -30,13 +30,8 @@ const textClass: Record<NonNullable<UserAvatarProps['size']>, string> = {
 /**
  * Foto de perfil do usuário.
  *
- * Quando o usuário não tem foto própria, mostra a logo da Arka. A marca é bem
- * mais larga que alta, então nesse caso o encaixe é `contain` sobre fundo
- * branco com `cover` (usado nas fotos reais) ela apareceria recortada no
- * meio dentro do círculo.
- *
- * Se a imagem falhar ao carregar, cai na inicial do nome, para nunca ficar um
- * quadro vazio.
+ * Utiliza user.webp por padrão ou imagem customizada, com corte circular `object-cover`.
+ * Se a imagem falhar ao carregar, exibe a inicial do nome.
  */
 export const UserAvatar: React.FC<UserAvatarProps> = ({
   name,
@@ -49,8 +44,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   const [failed, setFailed] = useState(false);
 
   const custom = avatarUrl?.trim();
-  const src = custom || ARKA_LOGO_URL;
-  const isLogo = !custom;
+  const src = (custom && !custom.includes('arka-horizontal')) ? custom : USER_AVATAR_URL;
 
   const frame = `${sizeClass[size]} rounded-full shrink-0 ${className}`;
   const ringStyle = ring ? { boxShadow: `0 0 0 2px ${color}` } : undefined;
@@ -72,7 +66,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       src={src}
       alt={name ? `Foto de ${name}` : ''}
       onError={() => setFailed(true)}
-      className={`${frame} ${isLogo ? 'object-contain bg-white p-0.5' : 'object-cover'}`}
+      className={`${frame} object-cover bg-[var(--bg-subtle)]`}
       style={ringStyle}
     />
   );

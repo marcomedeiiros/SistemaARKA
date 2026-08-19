@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import './styles/index.css';
 import { AuthProvider } from './context/AuthContext';
@@ -20,10 +21,21 @@ import { Suppliers } from './components/suppliers/Suppliers';
 import { Reports } from './components/reports/Reports';
 import { Users } from './components/users/Users';
 import { Settings } from './components/settings/Settings';
+import { LoginScreen } from './components/auth/LoginScreen';
+import { ErpLoadingScreen } from './components/auth/ErpLoadingScreen';
+import { useAuth } from './context/AuthContext';
 import { initializeData } from './data/store';
+import { AUTH_PATHS, MODULE_PATHS, moduleFromPath } from './routes';
 
 function AppContent() {
-  const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, isEnteringDashboard, setIsEnteringDashboard } = useAuth();
+
+  // O módulo ativo agora vem da URL; a navegação apenas troca a rota.
+  const activeModule = moduleFromPath(location.pathname);
+  const setActiveModule = (module: ActiveModule) => navigate(MODULE_PATHS[module]);
+
   const [bootState, setBootState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [bootError, setBootError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -49,14 +61,7 @@ function AppContent() {
   }, []);
 
   if (bootState === 'loading') {
-    return (
-      <div className="boot-screen">
-        <div className="text-center">
-          <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[var(--text-main)] font-semibold text-sm">Carregando Sistemas Arka ERP...</p>
-        </div>
-      </div>
-    );
+    return <ErpLoadingScreen message="Conectando à base de dados do Sistemas Arka ERP..." duration={1200} />;
   }
 
   if (bootState === 'error') {
@@ -83,36 +88,27 @@ function AppContent() {
     );
   }
 
-  const renderModule = () => {
-    switch (activeModule) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'customers':
-        return <Customers />;
-      case 'os':
-        return <ServiceOrders />;
-      case 'sales':
-        return <Sales />;
-      case 'products':
-        return <Products />;
-      case 'services':
-        return <Services />;
-      case 'stock':
-        return <StockMovements />;
-      case 'financial':
-        return <Financial />;
-      case 'suppliers':
-        return <Suppliers />;
-      case 'reports':
-        return <Reports />;
-      case 'users':
-        return <Users />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  // Dados carregados, mas sem sessão: rotas públicas de login/cadastro.
+  if (!currentUser) {
+    return (
+      <Routes>
+        <Route path={AUTH_PATHS.login} element={<LoginScreen mode="login" />} />
+        <Route path={AUTH_PATHS.register} element={<LoginScreen mode="register" />} />
+        <Route path="*" element={<Navigate to={AUTH_PATHS.login} replace />} />
+      </Routes>
+    );
+  }
+
+  // Tela de transição / carregamento para o painel executivo após o login
+  if (isEnteringDashboard) {
+    return (
+      <ErpLoadingScreen
+        user={currentUser}
+        onFinish={() => setIsEnteringDashboard(false)}
+        duration={1800}
+      />
+    );
+  }
 
   return (
     <div className="app-root bg-[var(--bg-main)]">
@@ -131,7 +127,22 @@ function AppContent() {
         />
         <main className="app-main">
           <div className="layout-inner">
-            {renderModule()}
+            <Routes>
+              <Route path="/" element={<Navigate to={MODULE_PATHS.dashboard} replace />} />
+              <Route path={MODULE_PATHS.dashboard} element={<Dashboard />} />
+              <Route path={MODULE_PATHS.reports} element={<Reports />} />
+              <Route path={MODULE_PATHS.os} element={<ServiceOrders />} />
+              <Route path={MODULE_PATHS.sales} element={<Sales />} />
+              <Route path={MODULE_PATHS.customers} element={<Customers />} />
+              <Route path={MODULE_PATHS.products} element={<Products />} />
+              <Route path={MODULE_PATHS.services} element={<Services />} />
+              <Route path={MODULE_PATHS.stock} element={<StockMovements />} />
+              <Route path={MODULE_PATHS.financial} element={<Financial />} />
+              <Route path={MODULE_PATHS.suppliers} element={<Suppliers />} />
+              <Route path={MODULE_PATHS.users} element={<Users />} />
+              <Route path={MODULE_PATHS.settings} element={<Settings />} />
+              <Route path="*" element={<Navigate to={MODULE_PATHS.dashboard} replace />} />
+            </Routes>
           </div>
         </main>
       </div>

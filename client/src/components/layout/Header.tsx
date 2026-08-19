@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Bell, Sun, Moon, ChevronDown, Menu, Search,
-  AlertTriangle, ClipboardList, DollarSign, Check
+  AlertTriangle, ClipboardList, DollarSign, Check, LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
   onNavigate
 }) => {
-  const { currentUser, allUsers, setCurrentUser } = useAuth();
+  const { currentUser, allUsers, setCurrentUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isMobile = useIsMobile();
 
@@ -316,6 +316,20 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   );
                 })}
+
+                <div className="border-t border-[var(--border-color)] mt-1 pt-1">
+                  <button
+                    onClick={() => {
+                      closeMenus();
+                      logout();
+                    }}
+                    role="menuitem"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-red-500 hover:bg-red-500/10 transition"
+                  >
+                    <LogOut size={15} className="shrink-0" />
+                    <span className="text-xs font-medium">Sair da conta</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

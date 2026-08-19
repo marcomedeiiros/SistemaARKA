@@ -1701,3 +1701,407 @@
     overflow: visible !important;
   }
 }
+
+/* ─── Tela de login / cadastro (sempre no visual escuro da marca) ─── */
+@layer components {
+  .login-screen {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    padding: 1.5rem;
+    overflow: hidden;
+    background-color: #04060c;
+    color: #f1f5f9;
+  }
+
+  /* Camada de fundo com imagem tecnológica e partículas */
+  .login-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: url('/arka-login-bg.jpg') center center / cover no-repeat;
+  }
+
+  .login-bg-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(4, 6, 12, 0.2) 0%, rgba(4, 6, 12, 0.05) 50%, rgba(4, 6, 12, 0.5) 100%);
+    pointer-events: none;
+  }
+
+  .login-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.5;
+    animation: loginBlob 18s ease-in-out infinite;
+  }
+  .login-blob-1 { width: 42rem; height: 42rem; left: -12rem; top: -14rem; background: rgba(79, 110, 247, 0.5); }
+  .login-blob-2 { width: 34rem; height: 34rem; right: -10rem; bottom: -12rem; background: rgba(16, 185, 129, 0.3); animation-delay: -6s; }
+  .login-blob-3 { width: 28rem; height: 28rem; left: 42%; top: 48%; background: rgba(129, 140, 248, 0.3); animation-delay: -12s; }
+
+  @keyframes loginBlob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(4rem, 2rem) scale(1.12); }
+    66% { transform: translate(-3rem, 3rem) scale(0.94); }
+  }
+
+  /* Canvas do fundo animado de estoque (caixas empilhando) */
+  .stock-bg-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* Conteúdo em cima do fundo */
+  .login-content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    animation: fadeIn 0.5s var(--ease-arka);
+  }
+
+  .login-logo {
+    width: 190px;
+    max-width: 60%;
+    height: auto;
+    filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.55));
+  }
+
+  .login-tagline {
+    margin-top: -0.25rem;
+    font-size: 0.8rem;
+    color: #8497b4;
+    letter-spacing: 0.01em;
+  }
+
+  .login-card {
+    width: 100%;
+    margin-top: 0.4rem;
+    padding: 1.5rem;
+    border-radius: 18px;
+    background: rgba(15, 22, 35, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+
+  .login-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin-bottom: 1.25rem;
+    background: rgba(8, 12, 22, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 12px;
+  }
+  .login-tab {
+    flex: 1;
+    padding: 0.55rem;
+    border-radius: 9px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #8497b4;
+    transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  }
+  .login-tab:hover:not(.is-active) { color: #cdd8ea; }
+  .login-tab.is-active {
+    background: linear-gradient(135deg, #4f6ef7, #6366f1);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(79, 110, 247, 0.4);
+  }
+
+  .login-field { margin-bottom: 0.85rem; }
+  .login-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: #b6c2d9;
+  }
+  .login-input-wrap { position: relative; }
+  .login-input-wrap > svg {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    pointer-events: none;
+  }
+  .login-input {
+    width: 100%;
+    padding: 0.7rem 0.8rem 0.7rem 2.3rem;
+    background: rgba(8, 12, 22, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 10px;
+    color: #f1f5f9;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .login-input::placeholder { color: #5b6b86; }
+  .login-input:focus {
+    outline: none;
+    border-color: #4f6ef7;
+    box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.25);
+  }
+
+  .login-toggle-pw {
+    position: absolute;
+    right: 0.55rem;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.25rem;
+    color: #64748b;
+    transition: color 0.15s ease;
+  }
+  .login-toggle-pw:hover { color: #cdd8ea; }
+
+  .login-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.4rem;
+    padding: 0.8rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #fff;
+    background: linear-gradient(135deg, #4f6ef7, #6366f1);
+    box-shadow: 0 10px 24px rgba(79, 110, 247, 0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  }
+  .login-submit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(79, 110, 247, 0.5);
+  }
+  .login-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .login-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    font-size: 0.8rem;
+  }
+
+  .login-success {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+    font-size: 0.8rem;
+  }
+
+  .login-hint {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.78rem;
+    color: #8497b4;
+  }
+  .login-link {
+    color: #93a7ff;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .login-link:hover { color: #b9c6ff; }
+
+  .login-foot {
+    font-size: 0.7rem;
+    color: #475569;
+    text-align: center;
+  }
+
+  /* ─── Tela de Carregamento / Transição para o Painel ERP ─── */
+  .erp-loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    padding: 1.5rem;
+    background: #04060c;
+    color: #f1f5f9;
+    overflow: hidden;
+  }
+
+  .erp-loading-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    background: url('/arka-login-bg.jpg') center center / cover no-repeat;
+  }
+
+  .erp-loading-radial {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(4, 6, 12, 0.45) 0%, rgba(4, 6, 12, 0.85) 100%);
+  }
+
+  .erp-loading-card {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 28rem;
+    padding: 2.25rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    border-radius: 20px;
+    background: rgba(10, 16, 30, 0.82);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(79, 110, 247, 0.25);
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 40px rgba(56, 189, 248, 0.12);
+  }
+
+  .erp-loading-logo-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .erp-loading-logo {
+    height: 2.75rem;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 0 16px rgba(79, 110, 247, 0.45));
+  }
+
+  .erp-loading-body {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .erp-loading-icon-pulse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    background: rgba(6, 182, 212, 0.15);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    flex-shrink: 0;
+  }
+
+  .erp-loading-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .erp-loading-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1.25;
+  }
+
+  .erp-loading-subtitle {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.35;
+    margin-top: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .erp-loading-bar-container {
+    width: 100%;
+  }
+
+  .erp-loading-bar-track {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    border-radius: 99px;
+    background: rgba(30, 41, 59, 0.8);
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .erp-loading-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #06b6d4, #3b82f6, #a855f7);
+    transition: width 0.08s ease-out;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.8);
+  }
+
+  .erp-loading-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .erp-loading-pct {
+    font-family: monospace;
+    font-weight: 700;
+    color: #38bdf8;
+  }
+
+  .erp-loading-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #64748b;
+    font-size: 0.72rem;
+  }
+
+  .erp-loading-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 99px;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+  }
+
+  /* Acessibilidade: respeita quem prefere menos animação. */
+  @media (prefers-reduced-motion: reduce) {
+    .login-blob {
+      animation: none;
+    }
+  }
+}

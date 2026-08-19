@@ -67,6 +67,8 @@ export interface Product {
   barcode: string;
   imageUrl?: string;
   active: boolean;
+  /** Produto é uma licença de software (ex.: Windows) e exige chave na venda. */
+  requiresLicenseKey?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,6 +120,10 @@ export interface SaleItem {
   unitPrice: number;
   discount: number;
   subtotal: number;
+  /** Item é uma licença que exige chave na venda. */
+  requiresLicenseKey?: boolean;
+  /** Chaves/seriais das unidades vendidas (uma por unidade). */
+  licenseKeys?: string[];
 }
 
 export interface Sale {

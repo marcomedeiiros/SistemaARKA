@@ -6,7 +6,7 @@ import { salesService } from '../../services/salesService';
 import { formatCurrency, paymentMethodLabel, Alert } from '../common/FormComponents';
 import { useAuth } from '../../context/AuthContext';
 import { documentLogoProps } from '../../lib/brand';
-import { Search, Plus, Minus, Trash2, ShoppingCart, X, Printer, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, X, Printer, CheckCircle2, KeyRound } from 'lucide-react';
 
 interface SalesFormProps {
   onClose: () => void;
@@ -47,15 +47,24 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
     return !q || c.name.toLowerCase().includes(q) || c.document.includes(q) || c.phone.includes(q);
   }).slice(0, 8);
 
+  /** Ajusta a lista de chaves ao número de unidades, preservando o que já foi digitado. */
+  const resizeKeys = (keys: string[] | undefined, qty: number): string[] =>
+    Array.from({ length: Math.max(0, qty) }, (_, i) => keys?.[i] ?? '');
+
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
       if (existing) {
-        return prev.map((i) =>
-          i.productId === product.id
-            ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unitPrice - i.discount }
-            : i
-        );
+        return prev.map((i) => {
+          if (i.productId !== product.id) return i;
+          const quantity = i.quantity + 1;
+          return {
+            ...i,
+            quantity,
+            subtotal: quantity * i.unitPrice - i.discount,
+            licenseKeys: i.requiresLicenseKey ? resizeKeys(i.licenseKeys, quantity) : i.licenseKeys
+          };
+        });
       }
       const item: CartItem = {
         productId: product.id!,
@@ -65,7 +74,9 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
         quantity: 1,
         unitPrice: product.salePrice,
         discount: 0,
-        subtotal: product.salePrice
+        subtotal: product.salePrice,
+        requiresLicenseKey: product.requiresLicenseKey || undefined,
+        licenseKeys: product.requiresLicenseKey ? [''] : undefined
       };
       return [...prev, item];
     });
@@ -79,9 +90,24 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
     }
     setCart((prev) => prev.map((i) =>
       i.productId === productId
-        ? { ...i, quantity: qty, subtotal: qty * i.unitPrice - i.discount }
+        ? {
+            ...i,
+            quantity: qty,
+            subtotal: qty * i.unitPrice - i.discount,
+            licenseKeys: i.requiresLicenseKey ? resizeKeys(i.licenseKeys, qty) : i.licenseKeys
+          }
         : i
     ));
+  };
+
+  /** Atualiza a chave de licença de uma unidade específica do item. */
+  const updateLicenseKey = (productId: number, index: number, value: string) => {
+    setCart((prev) => prev.map((i) => {
+      if (i.productId !== productId) return i;
+      const keys = resizeKeys(i.licenseKeys, i.quantity);
+      keys[index] = value;
+      return { ...i, licenseKeys: keys };
+    }));
   };
 
   const cartSubtotal = cart.reduce((s, i) => s + i.subtotal, 0);
@@ -115,12 +141,32 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
       }
     }
 
+    // Licenças: exige uma chave preenchida por unidade vendida.
+    for (const item of cart) {
+      if (!item.requiresLicenseKey) continue;
+      const filled = (item.licenseKeys ?? []).map((k) => k.trim()).filter(Boolean);
+      if (filled.length < item.quantity) {
+        setAlert({
+          type: 'error',
+          message: `Informe a chave de licença de cada unidade de "${item.productName}" (${filled.length}/${item.quantity}).`
+        });
+        return;
+      }
+    }
+
+    // Normaliza as chaves (sem espaços) antes de enviar.
+    const items = cart.map((item) =>
+      item.requiresLicenseKey
+        ? { ...item, licenseKeys: (item.licenseKeys ?? []).map((k) => k.trim()) }
+        : item
+    );
+
     setLoading(true);
     try {
       const sale = await salesService.createSale({
         customerId: selectedCustomer.id!,
         customerName: selectedCustomer.name,
-        items: cart,
+        items,
         subtotal: cartSubtotal,
         discount,
         surcharge,
@@ -207,7 +253,14 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
               <tbody>
                 {finishedSale.items.map((item: SaleItem, index: number) => (
                   <tr key={`${item.productId}-${index}`}>
-                    <td>{item.productName}</td>
+                    <td>
+                      {item.productName}
+                      {item.licenseKeys && item.licenseKeys.length > 0 && (
+                        <span className="block mt-0.5 text-[0.68rem] text-[var(--text-muted)]">
+                          Chave(s): {item.licenseKeys.join(', ')}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-center">{item.quantity}</td>
                     <td className="text-right tabular">{formatCurrency(item.unitPrice)}</td>
                     <td className="text-right font-semibold tabular">
@@ -397,6 +450,24 @@ export const SalesForm: React.FC<SalesFormProps> = ({ onClose, onSave }) => {
                     <p className="font-bold text-sm text-green-400">{formatCurrency(item.subtotal)}</p>
                   </div>
                 </div>
+
+                {item.requiresLicenseKey && (
+                  <div className="pt-2 mt-1 border-t border-[var(--border-color)] space-y-1.5">
+                    <p className="text-[11px] font-medium text-blue-400 flex items-center gap-1">
+                      <KeyRound size={12} /> Chave(s) de licença ({item.quantity})
+                    </p>
+                    {Array.from({ length: item.quantity }).map((_, index) => (
+                      <input
+                        key={index}
+                        value={item.licenseKeys?.[index] ?? ''}
+                        onChange={(e) => updateLicenseKey(item.productId, index, e.target.value)}
+                        placeholder={`Chave da unidade ${index + 1} (ex: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX)`}
+                        className="arka-input text-xs font-mono py-1.5"
+                        aria-label={`Chave de licença ${index + 1} de ${item.productName}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}

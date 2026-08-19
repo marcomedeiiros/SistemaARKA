@@ -4,7 +4,7 @@ import { db } from '../../db/db';
 import { Product } from '../../types';
 import { FormGroup, FormRow, Alert } from '../common/FormComponents';
 import { formatCurrency } from '../common/FormComponents';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, KeyRound } from 'lucide-react';
 
 interface ProductFormProps {
   product?: Product;
@@ -17,7 +17,8 @@ const UNITS = ['UN', 'PC', 'KG', 'G', 'L', 'ML', 'M', 'CM', 'CX', 'MT', 'PT'];
 const emptyForm = {
   sku: '', name: '', description: '', categoryId: 0, brand: '', unit: 'UN',
   costPrice: 0, salePrice: 0, currentStock: 0, minStock: 5,
-  supplierId: undefined as number | undefined, barcode: '', imageUrl: '', active: true
+  supplierId: undefined as number | undefined, barcode: '', imageUrl: '', active: true,
+  requiresLicenseKey: false
 };
 
 export const ProductForm: React.FC<ProductFormProps> = ({ product, onClose, onSave }) => {
@@ -162,6 +163,24 @@ export const ProductForm: React.FC<ProductFormProps> = ({ product, onClose, onSa
       <FormGroup label="URL da Imagem">
         <input type="url" className="arka-input" value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="https://..." />
       </FormGroup>
+
+      <label className="flex items-center gap-3 cursor-pointer w-fit">
+        <span className="switch">
+          <input
+            type="checkbox"
+            checked={form.requiresLicenseKey ?? false}
+            onChange={(e) => set('requiresLicenseKey', e.target.checked)}
+          />
+        </span>
+        <span className="text-sm font-medium text-[var(--text-main)] flex items-center gap-1.5">
+          <KeyRound size={14} className="text-blue-400" />
+          Licença de software (exige chave na venda)
+          <span className="block w-full text-xs font-normal text-[var(--text-muted)]">
+            Marque para licenças como o Windows. No PDV, a chave/serial de cada unidade
+            é solicitada e registrada no comprovante.
+          </span>
+        </span>
+      </label>
 
       <label className="flex items-center gap-3 cursor-pointer w-fit">
         <span className="switch">

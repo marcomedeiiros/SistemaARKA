@@ -6,6 +6,7 @@
  * import de asset.
  */
 export const ARKA_LOGO_URL = '/arka-horizontal.webp';
+export const USER_AVATAR_URL = '/user.webp';
 
 export interface DocumentLogoProps {
   src: string;
