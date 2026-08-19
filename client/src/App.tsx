@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { ToastContainer } from './components/common/ToastContainer';
 import { CommandPalette } from './components/common/CommandPalette';
+import { VilmarAssistant } from './components/assistant/VilmarAssistant';
 import { Sidebar, ActiveModule } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './components/dashboard/Dashboard';
@@ -146,6 +147,9 @@ function AppContent() {
           </div>
         </main>
       </div>
+
+      {/* Assistente Vilmar: bolinha flutuante que consulta os dados do sistema */}
+      <VilmarAssistant onNavigate={setActiveModule} />
 
       {/* Global Toast Container */}
       <ToastContainer />

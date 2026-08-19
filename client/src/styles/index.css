@@ -2105,3 +2105,381 @@
     }
   }
 }
+
+/* ─────────────────────── Assistente Vilmar ─────────────────────── */
+@layer components {
+  /* Bolinha flutuante que abre o assistente. */
+  .vilmar-bubble {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 60;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-primary), #7c5cff);
+    box-shadow: 0 10px 30px color-mix(in oklab, var(--accent-primary) 45%, transparent);
+    border: none;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .vilmar-bubble:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 14px 36px color-mix(in oklab, var(--accent-primary) 55%, transparent);
+  }
+
+  .vilmar-bubble:active {
+    transform: scale(0.96);
+  }
+
+  /* Pontinho verde de "online" com pulso. */
+  .vilmar-bubble-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--accent-success);
+    border: 2px solid var(--bg-main);
+  }
+
+  .vilmar-bubble-dot::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 999px;
+    background: var(--accent-success);
+    opacity: 0.55;
+    animation: vilmar-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes vilmar-ping {
+    75%,
+    100% {
+      transform: scale(2.1);
+      opacity: 0;
+    }
+  }
+
+  /* Painel de conversa. */
+  .vilmar-panel {
+    position: fixed;
+    bottom: 88px;
+    right: 20px;
+    z-index: 60;
+    width: min(380px, calc(100vw - 32px));
+    height: min(560px, calc(100vh - 120px));
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.28);
+    animation: vilmar-rise 0.2s ease;
+  }
+
+  @keyframes vilmar-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .vilmar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, var(--accent-primary), #7c5cff);
+    color: #fff;
+  }
+
+  .vilmar-header-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(255 255 255 / 0.18);
+  }
+
+  .vilmar-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vilmar-header-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.1;
+  }
+
+  .vilmar-header-spark {
+    opacity: 0.9;
+  }
+
+  .vilmar-header-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    opacity: 0.9;
+  }
+
+  .vilmar-online-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+  }
+
+  .vilmar-header-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    color: #fff;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .vilmar-header-close:hover {
+    background: rgb(255 255 255 / 0.18);
+  }
+
+  .vilmar-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--bg-main);
+  }
+
+  .vilmar-row-user {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .vilmar-row-bot {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .vilmar-msg {
+    max-width: 86%;
+    padding: 9px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .vilmar-msg-text {
+    white-space: pre-line;
+    margin: 0;
+  }
+
+  .vilmar-msg-user {
+    background: var(--accent-primary);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .vilmar-msg-bot {
+    background: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-bottom-left-radius: 4px;
+  }
+
+  /* Lista de itens (produtos, OS, títulos). */
+  .vilmar-items {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .vilmar-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 10px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+  }
+
+  .vilmar-item-main {
+    min-width: 0;
+  }
+
+  .vilmar-item-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vilmar-item-subtitle {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vilmar-badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .vilmar-badge-default {
+    background: color-mix(in oklab, var(--accent-primary) 16%, transparent);
+    color: var(--accent-primary);
+  }
+
+  .vilmar-badge-success {
+    background: color-mix(in oklab, var(--accent-success) 18%, transparent);
+    color: var(--accent-success);
+  }
+
+  .vilmar-badge-warning {
+    background: color-mix(in oklab, var(--accent-warning) 20%, transparent);
+    color: var(--accent-warning);
+  }
+
+  .vilmar-badge-danger {
+    background: color-mix(in oklab, var(--accent-danger) 18%, transparent);
+    color: var(--accent-danger);
+  }
+
+  .vilmar-goto {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-primary);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .vilmar-goto:hover {
+    text-decoration: underline;
+  }
+
+  /* Sugestões rápidas. */
+  .vilmar-suggestions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .vilmar-suggestions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .vilmar-chip {
+    flex-shrink: 0;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--text-main);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .vilmar-chip:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+  }
+
+  .vilmar-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .vilmar-input {
+    flex: 1;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--text-main);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    outline: none;
+  }
+
+  .vilmar-input:focus {
+    border-color: var(--accent-primary);
+  }
+
+  .vilmar-send {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--accent-primary);
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .vilmar-send:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .vilmar-send:not(:disabled):hover {
+    transform: scale(1.06);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vilmar-bubble-dot::after,
+    .vilmar-panel {
+      animation: none;
+    }
+  }
+}
