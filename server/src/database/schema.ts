@@ -188,6 +188,7 @@ export const tables: TableDef[] = [
       customerDocument: { type: 'text' },
       customerEmail: { type: 'text' },
       customerAddress: { type: 'text' },
+      contractType: { type: 'text', fallback: 'avulso' },
       technicianId: { type: 'int' },
       technicianName: { type: 'text', fallback: '' },
       openingDate: { type: 'text', notNull: true },
@@ -210,7 +211,7 @@ export const tables: TableDef[] = [
       createdAt: timestamps.createdAt,
       updatedAt: timestamps.updatedAt
     },
-    indexes: ['code', 'customerId', 'status', 'technicianId', 'createdAt'],
+    indexes: ['code', 'customerId', 'status', 'contractType', 'technicianId', 'createdAt'],
     defaultOrder: { column: 'createdAt', direction: 'DESC' }
   },
   {

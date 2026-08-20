@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { User as UserIcon, Printer, FileText } from 'lucide-react';
 import { db } from '../../db/db';
+import { useLiveQuery } from '../../data/useLiveQuery';
 import { osService } from '../../services/osService';
-import { ServiceOrder, Customer, Product, ServiceItemCatalog, OSProduct, OSService, OSStatus } from '../../types';
+import { ServiceOrder, Customer, Product, ServiceItemCatalog, OSProduct, OSService, OSStatus, OSContractType } from '../../types';
 import { Alert, FormRow, formatCurrency } from '../common/FormComponents';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
@@ -14,13 +16,31 @@ interface OSFormProps {
 }
 
 export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, allUsers } = useAuth();
+  const dbUsers = useLiveQuery(() => db.users.toArray(), []) || allUsers;
+  const activeUsers = dbUsers.filter((u) => u.active !== false);
+
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
   const [alert, setAlert] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [contractType, setContractType] = useState<OSContractType>(os?.contractType || 'avulso');
   const [customerId, setCustomerId] = useState<number | ''>(os?.customerId || '');
   const [customerName, setCustomerName] = useState(os?.customerName || '');
-  const [technicianName, setTechnicianName] = useState(os?.technicianName || '');
+  const [technicianId, setTechnicianId] = useState<number | undefined>(
+    os?.technicianId !== undefined
+      ? os.technicianId
+      : (os ? undefined : currentUser?.id)
+  );
+  const [technicianName, setTechnicianName] = useState<string>(
+    os?.technicianName || currentUser?.name || ''
+  );
+
+  useEffect(() => {
+    if (!os && !technicianName && currentUser?.name) {
+      setTechnicianName(currentUser.name);
+      if (currentUser.id) setTechnicianId(currentUser.id);
+    }
+  }, [currentUser, os, technicianName]);
   const [openingDate, setOpeningDate] = useState<string>(
     os?.openingDate ? os.openingDate.split('T')[0] : new Date().toISOString().split('T')[0]
   );
@@ -220,10 +240,17 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
     setAlert(null);
     setSaving(true);
 
+    const resolvedTechId =
+      technicianId !== undefined
+        ? technicianId
+        : (currentUser?.name === technicianName ? currentUser?.id : undefined);
+
     const osData: Omit<ServiceOrder, 'id' | 'code' | 'createdAt' | 'updatedAt'> = {
       customerId: Number(customerId),
       customerName: customerName || 'Cliente',
-      technicianName: technicianName || 'Técnico Responsável',
+      technicianId: resolvedTechId,
+      technicianName: technicianName || currentUser?.name || 'Técnico Responsável',
+      contractType,
       openingDate,
       status,
       problemDescription,
@@ -293,6 +320,92 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
     >
       <form id="os-form" onSubmit={handleSubmit} className="space-y-4">
           {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
+
+          {/* Bloco de Seleção de Tipo de Atendimento / Contrato */}
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+              Tipo de Atendimento / Contrato
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setContractType('avulso')}
+                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  contractType === 'avulso'
+                    ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/30'
+                    : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-blue-400/40 hover:bg-[var(--bg-card-hover)]'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-md shrink-0 ${
+                    contractType === 'avulso'
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'bg-[var(--bg-card-hover)] text-[var(--text-muted)]'
+                  }`}
+                >
+                  <UserIcon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold leading-tight ${contractType === 'avulso' ? 'text-blue-400' : 'text-[var(--text-main)]'}`}>
+                    Cliente Avulso
+                  </p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">Atendimento pontual</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContractType('contrato_impressora')}
+                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  contractType === 'contrato_impressora'
+                    ? 'border-purple-500 bg-purple-500/10 ring-1 ring-purple-500/30'
+                    : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-400/40 hover:bg-[var(--bg-card-hover)]'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-md shrink-0 ${
+                    contractType === 'contrato_impressora'
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'bg-[var(--bg-card-hover)] text-[var(--text-muted)]'
+                  }`}
+                >
+                  <Printer size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold leading-tight ${contractType === 'contrato_impressora' ? 'text-purple-400' : 'text-[var(--text-main)]'}`}>
+                    Contrato Impressora
+                  </p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">Locação / Outsourcing</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContractType('cliente_contrato')}
+                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  contractType === 'cliente_contrato'
+                    ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                    : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-emerald-400/40 hover:bg-[var(--bg-card-hover)]'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-md shrink-0 ${
+                    contractType === 'cliente_contrato'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-[var(--bg-card-hover)] text-[var(--text-muted)]'
+                  }`}
+                >
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold leading-tight ${contractType === 'cliente_contrato' ? 'text-emerald-400' : 'text-[var(--text-main)]'}`}>
+                    Cliente Contrato
+                  </p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">Mensalista / Manutenção</p>
+                </div>
+              </button>
+            </div>
+          </div>
           
           <FormRow cols={2}>
             <div>
@@ -340,14 +453,33 @@ export const OSForm: React.FC<OSFormProps> = ({ os, onSave, onClose }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Técnico Responsável</label>
-              <input
-                type="text"
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                Técnico Responsável *
+              </label>
+              <select
                 value={technicianName}
-                onChange={(e) => setTechnicianName(e.target.value)}
-                className="arka-input"
-                placeholder="Nome do técnico"
-              />
+                onChange={(e) => {
+                  const selectedName = e.target.value;
+                  setTechnicianName(selectedName);
+                  const matched = activeUsers.find((u) => u.name === selectedName);
+                  setTechnicianId(matched?.id);
+                }}
+                className="arka-select"
+              >
+                {activeUsers.length === 0 && (
+                  <option value={technicianName || ''}>
+                    {technicianName || 'Carregando usuários...'}
+                  </option>
+                )}
+                {activeUsers.map((u) => (
+                  <option key={u.id || u.name} value={u.name}>
+                    {u.name} {u.id === currentUser?.id ? '(Você)' : ''} {u.role === 'admin' ? '· Administrador' : u.role === 'technician' ? '· Técnico' : u.role === 'financial' ? '· Financeiro' : ''}
+                  </option>
+                ))}
+                {technicianName && !activeUsers.some((u) => u.name === technicianName) && (
+                  <option value={technicianName}>{technicianName} (Outro)</option>
+                )}
+              </select>
             </div>
           </FormRow>
 

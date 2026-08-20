@@ -159,6 +159,18 @@ export const osStatusColor: Record<string, string> = {
   cancelada: 'badge-red'
 };
 
+export const osContractTypeLabel: Record<string, string> = {
+  avulso: 'Cliente Avulso',
+  contrato_impressora: 'Contrato Impressora',
+  cliente_contrato: 'Cliente Contrato'
+};
+
+export const osContractTypeColor: Record<string, string> = {
+  avulso: 'badge-slate',
+  contrato_impressora: 'badge-purple',
+  cliente_contrato: 'badge-blue'
+};
+
 export const financialStatusColor: Record<string, string> = {
   pendente: 'badge-amber',
   pago: 'badge-green',

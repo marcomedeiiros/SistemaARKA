@@ -148,6 +148,8 @@ export interface Sale {
 
 export type OSStatus = 'aberta' | 'em_execucao' | 'encerrada' | 'cancelada';
 
+export type OSContractType = 'avulso' | 'contrato_impressora' | 'cliente_contrato';
+
 export interface OSProduct {
   productId: number;
   productName: string;
@@ -176,6 +178,8 @@ export interface ServiceOrder {
   customerDocument?: string;
   customerEmail?: string;
   customerAddress?: string;
+  /** Tipo de contrato ou atendimento da OS */
+  contractType?: OSContractType;
   technicianId?: number;
   technicianName: string;
   openingDate: string;

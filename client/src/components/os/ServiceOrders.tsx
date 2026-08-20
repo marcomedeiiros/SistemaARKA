@@ -4,7 +4,15 @@ import { db } from '../../db/db';
 import { OSForm } from './OSForm';
 import { OSDetail } from './OSDetail';
 import { ServiceOrder } from '../../types';
-import { formatDate, formatCurrency, osStatusLabel, osStatusColor, SectionTitle } from '../common/FormComponents';
+import {
+  formatDate,
+  formatCurrency,
+  osStatusLabel,
+  osStatusColor,
+  osContractTypeLabel,
+  osContractTypeColor,
+  SectionTitle
+} from '../common/FormComponents';
 import { useToast } from '../../context/ToastContext';
 import { Plus, Eye, Edit3, Trash2 } from 'lucide-react';
 
@@ -152,7 +160,18 @@ export const ServiceOrders: React.FC = () => {
               {serviceOrders?.map((os) => (
                 <tr key={os.id}>
                   <td className="font-mono text-xs text-blue-400 font-bold">{os.code}</td>
-                  <td className="font-medium text-xs sm:text-sm">{os.customerName}</td>
+                  <td>
+                    <div className="font-medium text-xs sm:text-sm text-[var(--text-main)]">
+                      {os.customerName}
+                    </div>
+                    <div className="mt-0.5">
+                      <span
+                        className={`badge ${osContractTypeColor[os.contractType || 'avulso'] || 'badge-slate'}`}
+                      >
+                        {osContractTypeLabel[os.contractType || 'avulso'] || 'Cliente Avulso'}
+                      </span>
+                    </div>
+                  </td>
                   <td>
                     {/* Resumo em até duas linhas, para caber bem mais texto que
                         o corte antigo de uma linha só. O texto integral fica no

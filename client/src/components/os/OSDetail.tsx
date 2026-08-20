@@ -13,6 +13,8 @@ import {
   formatCurrency,
   formatDate,
   osStatusLabel,
+  osContractTypeLabel,
+  osContractTypeColor,
   LoadingSpinner
 } from '../common/FormComponents';
 
@@ -164,9 +166,14 @@ export const OSDetail: React.FC<OSDetailProps> = ({ osId, onClose, onEdit }) => 
           <div className="doc-header-right">
             <p className="doc-kind">Ordem de Serviço</p>
             <p className="doc-code">{os.code}</p>
-            <span className="badge badge-slate w-fit">
-              {osStatusLabel[os.status] || os.status}
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-1.5 mt-1">
+              <span className={`badge ${osContractTypeColor[os.contractType || 'avulso'] || 'badge-slate'} w-fit`}>
+                {osContractTypeLabel[os.contractType || 'avulso'] || 'Cliente Avulso'}
+              </span>
+              <span className="badge badge-slate w-fit">
+                {osStatusLabel[os.status] || os.status}
+              </span>
+            </div>
           </div>
         </header>
 
@@ -201,6 +208,12 @@ export const OSDetail: React.FC<OSDetailProps> = ({ osId, onClose, onEdit }) => 
         <section className="doc-section">
           <h3 className="doc-section-title">Dados do serviço</h3>
           <dl className="doc-facts">
+            <div>
+              <dt>Tipo de Contrato</dt>
+              <dd className="font-semibold text-blue-400">
+                {osContractTypeLabel[os.contractType || 'avulso'] || 'Cliente Avulso'}
+              </dd>
+            </div>
             <div>
               <dt>Técnico</dt>
               <dd>{os.technicianName || 'Não atribuído'}</dd>

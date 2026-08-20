@@ -19,7 +19,17 @@ export type CreateServiceOrderInput = Omit<
   'id' | 'code' | 'createdAt' | 'updatedAt' | 'stockDeducted' | 'receivableCreated'
 >;
 
+const VALID_CONTRACT_TYPES: OSContractType[] = [
+  'avulso',
+  'contrato_impressora',
+  'cliente_contrato'
+];
+
 function validate(input: Partial<CreateServiceOrderInput>): void {
+  // Se informado, sanitiza para um valor válido; se não informado, o fallback do schema aplica 'avulso'.
+  if (input.contractType && !VALID_CONTRACT_TYPES.includes(input.contractType)) {
+    input.contractType = 'avulso';
+  }
   if (!input.customerId) {
     throw new ValidationError('Selecione o cliente da ordem de serviço.');
   }
