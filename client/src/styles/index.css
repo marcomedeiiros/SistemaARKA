@@ -1773,6 +1773,32 @@
     animation: fadeIn 0.5s var(--ease-arka);
   }
 
+  .login-logos-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    width: 100%;
+  }
+
+  .login-logo-arka {
+    height: 42px;
+    width: auto;
+    max-width: 170px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.55));
+    transition: transform 0.2s ease;
+  }
+
+  .login-logo-b2g {
+    height: 44px;
+    width: auto;
+    max-width: 75px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.55));
+    transition: transform 0.2s ease;
+  }
+
   .login-logo {
     width: 190px;
     max-width: 60%;

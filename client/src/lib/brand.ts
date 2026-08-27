@@ -6,6 +6,8 @@
  * import de asset.
  */
 export const ARKA_LOGO_URL = '/arka-horizontal.webp';
+export const B2G_LOGO_URL = '/b2glogo.png';
+export const HANDSHAKE_ICON_URL = '/maozinha.png';
 export const USER_AVATAR_URL = '/user.webp';
 
 export interface DocumentLogoProps {

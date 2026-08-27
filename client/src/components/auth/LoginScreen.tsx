@@ -4,7 +4,7 @@ import {
   Mail, Lock, User as UserIcon, Eye, EyeOff, AlertCircle, LogIn, UserPlus, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ARKA_LOGO_URL } from '../../lib/brand';
+import { ARKA_LOGO_URL, B2G_LOGO_URL } from '../../lib/brand';
 import { AUTH_PATHS, Mode } from '../../routes';
 
 interface LoginScreenProps {
@@ -79,7 +79,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ mode }) => {
 
       {/* Conteúdo */}
       <div className="login-content">
-        <img src={ARKA_LOGO_URL} alt="Sistemas Arka" className="login-logo" width={640} height={160} />
+        <div className="login-logos-container">
+          <img
+            src={ARKA_LOGO_URL}
+            alt="Sistemas Arka"
+            className="login-logo-arka"
+            width={640}
+            height={160}
+          />
+          <img
+            src={B2G_LOGO_URL}
+            alt="B2G"
+            className="login-logo-b2g"
+            width={265}
+            height={205}
+          />
+        </div>
         <p className="login-tagline">Gestão de estoque, vendas e serviços</p>
 
         <div className="login-card">
